@@ -1,0 +1,177 @@
+
+
+\DeclareCaptionFormat{listing}{\centering\small\textbf{Código \thelstlisting:} #3}
+\captionsetup[lstlisting]{format=listing, singlelinecheck=false, margin=0pt, font={small}}
+
+
+\lstdefinelanguage{GPLC}{%
+  sensitive=true,%
+  morecomment=[l]{//},%
+  morestring=[b]",%
+  morekeywords={let,in,if,then,else},%
+  morekeywords=[2]{true,false},%
+  morekeywords=[3]{OUTPUT,Static,Run-Time,Syntax,Error},%
+  morekeywords=[4]{Real,Bool},%
+  literate=%
+  {lambda}{{{\color{kw}$\boldsymbol{\lambda}$}}}6%
+  {?}{{{\bfseries\color{typecolor}\ttfamily ?}}}1%
+  {\$}{{{\color{Purple}\ttfamily\bfseries\$}}}1%
+  {::}{{{\color{op}\ttfamily::}}}2%
+  {->}{{{\color{typecolor}\ttfamily->}}}2%
+}
+
+
+\lstdefinestyle{gplc-style}{%
+  language=GPLC,%
+  basicstyle=\ttfamily\small,%
+  keywordstyle=\bfseries\color{kw},%
+  keywordstyle=[2]\bfseries\color{boolcolor},%
+  keywordstyle=[3]\bfseries\color{err},%
+  keywordstyle=[4]\bfseries\color{typecolor},%
+  commentstyle=\itshape\color{com},%
+  stringstyle=\color{str},%
+  breaklines=true,%
+  backgroundcolor=\color{codebg},%
+  columns=fullflexible,%
+  aboveskip=6pt,
+  belowskip=6pt,
+  rulecolor=\color{framegray},
+  keepspaces=true,%
+  showstringspaces=false,%
+  breaklines=true,%
+  frame=single,%
+  rulecolor=\color{black},%
+}
+
+
+\lstset{style=gplc-style}
+
+
+
+
+\lstnewenvironment{gplcblock}[1][]
+  {\Needspace{12\baselineskip}\lstset{style=gplc-style,#1}}
+  {}
+
+
+
+
+
+
+% =========================
+% OCaml listings language 
+% =========================
+
+\lstdefinelanguage{OCAML}{%
+  sensitive=true,%
+  morecomment=[s]{(*}{*)},%
+  morestring=[b]",%
+  morekeywords={%
+    and,as,assert,begin,class,constraint,do,done,downto,else,end,exception,external,%
+    false,for,fun,function,functor,if,in,include,inherit,initializer,%
+    lazy,let,match,method,module,mutable,new,nonrec,object,of,open,or,private,%
+    rec,sig,struct,then,to,true,try,type,val,virtual,when,while,with%
+  },%
+  %
+  morekeywords=[2]{%
+    int,float,bool,char,string,unit,option,list,array,ref,%
+    Some,None,Ok,Error,%
+    Printf,Format,List,Array,String,Option,Result,Hashtbl,Map,Set%
+  },%
+  %
+  morekeywords=[3]{%
+    Error,Exception,Invalid_argument,Failure,Assert_failure,Not_found%
+  },%
+  %
+  morekeywords=[4]{%
+    type,module,sig,struct,functor,val%
+  },%
+  literate=%
+    {->}{{{\color{typecolor}\ttfamily->}}}2%
+    {=>}{{{\color{op}\ttfamily=>}}}2%
+    {<-}{{{\color{op}\ttfamily<-}}}2%
+    {::}{{{\color{op}\ttfamily::}}}2%
+    {:=}{{{\color{op}\ttfamily:=}}}2%
+    {;;}{{{\color{sep}\ttfamily;;}}}2%
+    {||}{{{\color{op}\ttfamily||}}}2%
+    {lambda!}{{{${\lambda}$}}}7%
+    {&&}{{{\color{op}\ttfamily\&\&}}}2%
+    {<>}{{{\color{op}\ttfamily<>}}}2%
+    {<=}{{{\color{op}\ttfamily<=}}}2%
+    {>=}{{{\color{op}\ttfamily>=}}}2%
+    {á}{{\'a}}1%
+    {é}{{\'e}}1%
+    {í}{{\'\i}}1%
+    {ó}{{\'o}}1%
+    {ú}{{\'u}}1%
+    {Á}{{\'A}}1%
+    {É}{{\'E}}1%
+    {Í}{{\'I}}1%
+    {Ó}{{\'O}}1%
+    {Ú}{{\'U}}1%
+    {ñ}{{\~n}}1%
+    {Ñ}{{\~N}}1%
+    {ü}{{\"u}}1%
+    {Ü}{{\"U}}1%
+}
+
+\lstdefinestyle{ocaml-style}{%
+  language=OCAML,%
+  basicstyle=\ttfamily\small,%
+  keywordstyle=\bfseries\color{kw},%
+  keywordstyle=[2]\bfseries\color{ty},%
+  keywordstyle=[3]\bfseries\color{err},%
+  keywordstyle=[4]\bfseries\color{typecolor},%
+  commentstyle=\itshape\color{com},%
+  stringstyle=\color{str},%
+  backgroundcolor=\color{codebg},%
+  columns=fullflexible,%
+  lineskip=-1pt,%
+  aboveskip=2pt,%
+  belowskip=2pt,%
+  keepspaces=true,%
+  showstringspaces=false,%
+  breaklines=true,%
+  frame=single,%
+  rulecolor=\color{black},%
+}
+
+% \lstset{style=ocaml-style}
+
+\lstnewenvironment{ocamlblock}[1][]
+  {\Needspace{12\baselineskip}\lstset{style=ocaml-style,#1}}
+  {}
+
+
+
+\lstdefinelanguage{GPLCinline}{%
+  sensitive=true,%
+  morecomment=[l]{//},%
+  morestring=[b]",%
+  morekeywords={let,in,if,then,else},%
+  morekeywords=[2]{true,false},%
+  morekeywords=[3]{OUTPUT,Static,Run-Time,Syntax,Error},%
+  morekeywords=[4]{Real,Bool},%
+  literate=%
+    {lambda}{{$\lambda$}}6%
+}
+
+\lstdefinestyle{gplc-inline-style}{%
+  language=GPLCinline,%
+  basicstyle=\ttfamily,%
+  keywordstyle=\ttfamily,%
+  keywordstyle=[2]\ttfamily,%
+  keywordstyle=[3]\ttfamily,%
+  keywordstyle=[4]\ttfamily,%
+  commentstyle=\ttfamily,%
+  stringstyle=\ttfamily,%
+  identifierstyle=\ttfamily,%
+  keepspaces=true,%
+  showstringspaces=false,%
+  columns=fullflexible%
+}
+
+%\newcommand{\gplcinline}[1]{\lstinline[style=gplc-inline-style]!#1!}
+
+\lstset{style=gplc-inline-style, breaklines=false}
+

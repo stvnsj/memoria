@@ -1,0 +1,127 @@
+% -*- TeX-master: t; -*-
+%
+% se puede agregar la opción [english] para 
+%  memorias o tesis en inglés (borrando el archivo .aux)
+\documentclass{umemoria} 
+\depto{Departamento de Ciencias de la Computación}
+\author{Jonnathan Stevens S.}
+\title{Desarrollo de un Intérprete para un Lenguaje gradual Probabilístico}
+
+% incluir ambos comandos para una doble titulación
+%  o quitar el comando que no aplica
+\memoria{Ingeniero Civil en Computación}
+%\tesis{Magíster en ???}
+%\tesis{Doctor en ???} % incluir solo este comando para doctorados
+
+% puede haber varios profesores guía seperados por coma;
+% pero si es una memoria, solo puede haber un profesor guía
+\guia{Matías Toro I., Federico Olmedo B.} 
+
+% puede haber varios profesores co-guía seperados por coma;
+% pero si es una memoria, el profesor co-guía será el primer
+% integrante de la comisión
+%\coguia{} % incluir en caso de co-guía de *tesis*
+
+%\cotutela{Nombre Institución} % incluir en caso de cotutela
+
+\comision{Nancy Hitschfeld K.,Johan Fabry}
+
+%\auspicio{Nombre Institución} % incluir en caso de recibir financiamiento
+
+% tiene que ser el año en que se da el examen de título/grado (defensa)
+%\anho{2021} % incluir solo para reemplazar el año actual
+
+
+
+
+% =========
+% Packages
+% =========
+\usepackage[spanish]{babel}
+\usepackage{comment} % Borrar después de usar
+\usepackage[authoryear]{natbib}
+\usepackage{lipsum}
+\usepackage{xcolor}
+\usepackage{mathrsfs}
+\usepackage{float}
+\usepackage{mathpartir}
+\usepackage{listings}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\newcommand{\harvardand}{y}
+
+
+% ======================
+% Conditional Packages
+% ======================
+\usepackage{needspace} % Space Management Wizard
+\usepackage{comment}
+
+
+
+
+
+% Input Archivos Auxiliares
+\input{aux/color.tex}% aux/color.tex
+\input{aux/formal-gplc.tex}% aux/formal-gplc.tex
+\input{aux/code-env.tex}% aux/code-env.tex
+\input{aux/config.tex}% aux/config.tex
+\input{aux/macro.tex}% aux/macro.tex
+
+
+\begin{document}
+
+\frontmatter
+\maketitle
+
+\begin{resumen}
+\input{resumen.tex}% resumen.tex
+\end{resumen}
+
+% opcional: incluir para tesis en inglés;
+%  en este caso hay que tener el resumen y abstract
+%   en ambos idiomas
+%\begin{abstract}
+%\lipsum[1-4]
+%\end{abstract}
+
+\begin{dedicatoria}
+\end{dedicatoria}
+
+\begin{thanks}
+\end{thanks}
+
+\tableofcontents
+%\listoftables % opcional
+\listoffigures % opcional
+
+\mainmatter
+
+
+
+\input{sec/introduccion.tex}     % 1 sec/introduccion.tex
+\input{sec/marco_teorico.tex}    % 2 sec/marco_teorico.tex
+\input{sec/estado_arte.tex}      % 3 sec/estado_arte.tex
+\input{sec/lambda_calculo.tex}   % 4 sec/lambda_calculo.tex
+\input{sec/lenguaje_gplc.tex}    % 5 sec/lenguaje_gplc.tex
+\input{sec/arquitectura.tex}     % 6 sec/arquitectura.tex
+\input{sec/implementacion.tex}   % 7 sec/implementacion.tex
+\input{sec/validacion.tex}       % 8 sec/validacion.tex
+\input{sec/conclusiones.tex}     % 9 sec/conclusiones.tex
+
+%\input{cap2.tex}
+%\input{cap3.tex}
+%\input{conclu.tex}
+
+% ver https://www.overleaf.com/learn/latex/Glossaries
+% \input{glosario.tex} % opcional
+
+\nocite{*}
+\bibliographystyle{plainnat}
+\bibliography{bibliografia}
+
+% opcional ...
+% \begin{appendices}
+% \input{anexoA.tex}
+% \end{appendices}
+
+\end{document}

@@ -1,0 +1,312 @@
+% -*- TeX-master: "../main.tex" -*-
+
+\chapter{Formulación teórica de GPLC}\label{sec:abstract-gplc}
+GPLC es un lenguaje de programación gradual y probabilístico, cuyos
+programas retornan como resultado una distribución de probabilidad
+sobre todos los valores posibles que el programa puede producir, y
+cuyas expresiones admiten anotaciones o ascripciones de tipo. Dichos
+tipos pueden ser simples (los tipos usuales $\Real$,
+($\Real \to \Bool$), etc., además del tipo desconocido $\Any$) o tipos
+de distribución (distribuciones de probabilidad sobre tipos
+simples). El operador de selección binaria probabilística introduce la
+incertidumbre en un programa: $t_1 \bigoplus_p t_2$ selecciona el
+término $t_1$ con probabilidad $p$, y el término $t_2$ con
+probabilidad $1-p$, y $p$ puede ser $\Any$. La consistencia de los
+programas de GPLC se verifica estáticamente sobre el AST del programa,
+inicialmente formulado en un lenguaje denominado \emph{lenguaje
+  fuente}, y luego el programa se reformula en otro lenguaje similar,
+denominado \emph{lenguaje destino}, en el cual {(1)} todos los
+términos reciben una anotación o ascripción de tipo que fuerza un
+chequeo dinámico de compatibilidad en tiempo de ejecución, y {(2)} las
+distribuciones de probabilidad tienen probabilidades simbólicas
+restringidas por un sistema de ecuaciones e inecuaciones denominado
+\emph{fórmula}. Un aspecto fundamental en las relaciones y operaciones
+entre distribuciones simbólicas es el juicio de satisfacibilidad que
+se debe llevar a cabo sobre la fórmula de la distribución
+resultante. Finalmente, en tiempo de ejecución se reduce el programa
+en lenguaje destino a una distribución simbólica de valores.
+
+\section{Lenguaje fuente}\label{sec:source-language}
+
+
+El lenguaje fuente es el lenguaje con el cual se construyen los
+programas en GPLC.
+
+
+\subsection{Tipos}\label{par:gplc-types} Las dos categorías de tipos
+usadas en la sintaxis del lenguaje fuente son los \emph{tipos
+  graduales simples} (denotados con las
+metavariables\footnote{Símbolos usados en la presentación formal para
+  denotar elementos de la categoría indicada; no forman parte de la
+  sintaxis del lenguaje.} $\sigma$, $\delta$, y $\epsilon$) y los
+\emph{tipos graduales de distribución} (denotados con las
+metavariables $\mu$ , $\nu$, y $\xi$). Los tipos graduales simples son
+el tipo numérico $\Real$, el tipo lógico $\Bool$, el tipo desconocido
+$\Any$, y el tipo de función $\Fun{\sigma}{\mu}$. Los tipos de
+distribución son un multiconjunto\footnote{un conjunto donde pueden
+  existir elementos repetidos, e.g. $\distr{\Real^{0.5},\Real^{0.5}}$}
+de pares $\distr{(\sigma_1,p_1),\cdots,(\sigma_n,p_n)}$, donde $p_i$
+es una \emph{probabilidad gradual}, la cual puede ser un número real
+$r\in[0,1]$ o el símbolo $\Any$ (la probabilidad
+desconocida). En el par $(\sigma_i,p_i)$, $p_i$ es la
+  probabilidad del tipo $\sigma_i$. Por conveniencia, este par se puede escribir como $\sigma_i^{p_i}$. Ejemplos de tipos de distribución
+son $\distr{\Real^{0.2},\Bool^{0.8}}$,
+$\distr{\Bool^{\Any}, \Real^{0.5}, \Any^{0.2}}$.
+
+
+
+
+\subsection{Consistencia}\label{par:consistency} La consistencia es
+una relación que indica cuándo dos tipos son compatibles, en el tipado
+gradual, y puede entenderse como la contraparte gradual
+  de la igualdad de tipos; se denota con el símbolo $\sim$.  En GPLC,
+las reglas de consistencia para los tipos graduales simples están
+dadas por $\Real\sim\Real$, $\Bool\sim\Bool$, $\Any\sim \sigma$ y
+$\sigma \sim\Any$. En el caso de las funciones,
+$(\Fun{\sigma_1}{\mu_1}) \sim (\Fun{\sigma_2}{\mu_2})$, si
+$\sigma_1\sim\sigma_2$ y $\mu_1\sim\mu_2$. Esta última regla utiliza
+la consistencia entre los tipos graduales de distribución $\mu_1$ y
+$\mu_2$.
+
+Para definir la consistencia a nivel de tipos graduales de distribución,
+es necesario establecer una relación de consistencia entre los tipos
+graduales simples de las distribuciones. Si
+$\mu = \distr{\sigma_1^{p_1},\cdots,\sigma_m^{p_m}}$ y
+$\nu = \distr{\delta_1^{q_1},\cdots,\delta_n^{q_n}}$ son dos
+distribuciones de tipos, entonces una matriz
+$\coupling = [\alpha_{ij}]$\footnote{La notación
+  $[\alpha_{ij}]$ denota una matriz cuya entrada $(i,j)$ es
+  $\alpha_{ij}$ para las filas $i=1,\cdots,m$ y columnas
+  $j=1,\cdots,n$}, de dimensión $m\times n$, con
+$0\leq\alpha_{ij}\leq 1$, tal que la fila $i$ es una descomposición de
+la probabilidad $p_i = \alpha_{i,1}+\cdots +\alpha_{i,n}$ y la columna
+$j$ es una descomposición de la probabilidad
+$q_j = \alpha_{1,j} + \cdots +\alpha_{m,j}$, permite reescribir las
+distribuciones $\mu$ y $\nu$ como
+$\mu'= \distr{ \sigma_i^{\alpha_{ij}} \setbuild
+  (i,j)\in\{1,...,m\}\times\{1,...,n\} }$ y
+$\nu'= \distr{ \delta_j^{\alpha_{ij}} \setbuild
+  (i,j)\in\{1,...,m\}\times\{1,...,n\} }$, respectivamente,
+conservándose el peso total de cada tipo en ambas distribuciones. Si
+además se impone a $\coupling$ la condición de que $\alpha_{ij} = 0$
+cuando $\neg(\sigma_i\sim \delta_j)$, entonces ambos tipos con la
+probabilidad no nula $\alpha_{ij}$ son consistentes. La consistencia
+entre tipos de distribución se define como la existencia de dicha
+matriz $\coupling$, la cual se denomina \emph{coupling} en el trabajo
+de \cite{gplc}. Por ejemplo, para los tipos de distribución
+$\mu=\distr{\Real^{0.5}, \Bool^{0.5}}$ y
+$\nu=\distr{\Real^{0.3},\Bool^{0.4},\Any^{0.3}}$, existe el siguiente
+coupling $\coupling$ con respecto a la consistencia:
+
+\[
+  \begin{array}{c|cccc}
+    
+    \phantom{e} & q_{1} = 0.3 & q_{2} = 0.4 & q_{3} = 0.3\\
+    \hline
+     p_{1} = 0.5 & \alpha_{1,1} = 0.3 & \alpha_{1,2} = 0.0 & \alpha_{1,3} = 0.2 \\
+    p_{2} = 0.5 & \alpha_{2,1} = 0.0 & \alpha_{2,2} = 0.4 & \alpha_{2,3}  = 0.1
+  \end{array}
+\]
+
+
+\subsection{Distribuciones simbólicas}\label{par:symbolic} La existencia de un coupling $\coupling$, y por lo tanto la consistencia entre $\mu$ y $\nu$, se determina resolviendo el sistema de ecuaciones de la figura \ref{fig:coupling-eq}.
+\begin{figure}[H]
+\centering
+\begin{align*}
+  p_i &= \alpha_{i1}+\cdots+\alpha_{in}\\
+  q_j &= \alpha_{1j}+\cdots+\alpha_{mj}\\
+  0 &\le \alpha_{ij} \le 1\\
+  \alpha_{ij} &= 0 \quad \text{si } \neg(\sigma_i \sim \delta_j)
+\end{align*}
+\caption{Sistema para determinar consistencia}
+\label{fig:coupling-eq}
+\end{figure}
+
+
+Sin embargo, los tipos graduales, introducidos en esta sección, no sirven para resolver este sistema, dado que una probabilidad gradual puede ser el símbolo $\Any$, y no tendría sentido el planteamiento de una ecuación $\Any = \alpha_{i1} + \cdots + \alpha_{im}$. Por eso se definen dos categorías de tipos más adecuadas a la representación interna del lenguaje (a diferencia de los tipos graduales usados en la sintaxis del lenguaje, que ofrecen la posibilidad de expresar una probabilidad con $\Any$) denominados tipos simples de fórmula y tipos de distribución de fórmula. Entre los primeros, $\Real$, $\Bool$, y $\Any$ son compartidos con los tipos graduales. La primera diferencia es que en los tipos funcionales $\Fun{\sigma}{\mu}$, $\mu$ es un tipo de distribución de fórmula, lo cual es una distribución de probabilidad sobre tipos simples de fórmula, y cuyas probabilidades se definen como una estructura de datos, denominada \emph{probabilidad simbólica}, que contiene una variable simbólica real, además de otros campos de metadatos. Las restricciones que controlan el valor de las variables son un sistema de ecuaciones e inecuaciones que se denomina \emph{fórmula} de la distribución. Por ejemplo, el tipo gradual de distribución $\distr{\Real^{\Any} , \Bool^{0.5}, {(\Fun{\Real}{\Any})}^{0.1}}$ expresado como tipo de distribución de fórmula sería:
+\begin{equation*}
+  \label{eq:form}
+  (\sum_{i=1}^{3}\omega_i=1
+  \myland
+  0\leq\omega_1\leq 1 \myland \omega_2 = 0.5 \land \omega_3 = 0.1)
+  \formop \distr{\Real ^ {\omega_1}, \Bool^{\omega_2}, {(\Fun{\Real}{\Any})}^{\omega_3}}  
+\end{equation*}
+
+
+De esta manera, la existencia de $\coupling$ para distribuciones de
+tipos de fórmula se determina resolviendo el sistema de la figura
+\ref{fig:coupling-eq}, aumentado con las fórmulas de ambas
+distribuciones. Debido a su manipulabilidad algebraica, un juicio como
+el de consistencia entre tipos graduales de distribución tiene como
+paso intermedio la transformación a tipos de distribución de fórmula.
+
+Cabe destacar que no solo los tipos graduales siguen las reglas del
+tipado gradual, sino también los tipos denominados tipos de
+fórmula. La diferencia entre estos radica en la forma de
+representación y no en la disciplina del tipado gradual, que rige a
+ambos sistemas de tipos por igual.
+
+
+
+\subsection{Términos}\label{par:source-term} En el lenguaje fuente de
+GPLC, los valores (denotados por $v$,$w$) son los literales numéricos
+(números reales), booleanos ($\true$ y $\false$), y las funciones, que
+tienen la sintaxis $\lambdaterm{x}{\sigma}{m}$ ($m$, $n$ denotan
+términos). Las funciones son, como en otros lenguajes funcionales,
+valores de primera clase.
+
+
+
+La expresión de selección binaria probabilística $m_1 \mychoice{p} m_2$ selecciona la expresión $m_1$ con probabilidad $p$, y la expresión $m_2$ con probabilidad $p-1$. Al igual que en los tipos, $p$ es una probabilidad gradual, es decir, puede ser un real $r\in[0,1]$, o $\Any$. La expresión $0 \mychoice{0.3} 1$ selecciona 0 y 1, con probabilidades 0.3 y 0.7 respectivamente. El complemento de la probabilidad gradual $\Any$ es también $\Any$. Por lo tanto, la expresión $\true \mychoice{?} \false$ selecciona ambas ramas con una probabilidad gradual desconocida.
+
+La expresión de ascripción --que puede ser $v\ascr \sigma$ o $m \ascr \mu$, dependiendo de si es una ascripción de tipo gradual simple o de distribución, respectivamente-- es una expresión que introduce una verificación estática de consistencia de la expresión ascrita. El tipo de $v$ o $m$, debe ser consistente con $\sigma$ o $\mu$. Por ejemplo, $1 \ascr \Real$ y $\false\ascr\Any$ son correctos porque $\Real$ y $\Bool$ son consistentes con $\Real$ y $\Any$, respectivamente. En cambio, $5 :: \Bool$ falla porque $\Real$ no es consistente con $\Bool$. En el ámbito de los tipos de distribución, la expresión $(5 \mychoice{0.4} \false) \ascr \distr{\Real ^ {0.4} , \Bool ^ {0.6}}$ es correcta, pues el tipo ascrito es consistente con la distribución de tipos inferida de la expresión ascrita.
+
+El resto de las expresiones son las usuales en los lenguajes de programación. El bloque $\letblock{x}{n}{m}$ para definir una variable local;  el bloque condicional $\ifterm{v}{m}{n}$; expresiones binarias numéricas ($+$,$-$,$*$,$/$) y booleanas (\andop, \orop); y la aplicación de un valor (funcional) $v$ a un término $w$, $vw$.
+
+
+  \subsection{Tipado fuente}\label{par:lang-source-static} El lenguaje fuente define un conjunto de reglas de tipado que asignan un tipo gradual a cada nodo del AST. Esta verificación es estática, pues ocurre antes del tiempo de ejecución del programa. En particular, las reglas de tipado en su mayoría se basan en la relación de consistencia: una expresión recibe un tipo gradual si sus subexpresiones satisfacen las condiciones de consistencia exigidas por la regla correspondiente.
+
+  
+
+  En la figura \ref{fig:src-type}, se presentan tres de las reglas de tipado. En la regla (T::) de la ascripción de tipo de distribución, la condición es que el tipo $\mu$ de la expresión ascrita $m$ debe ser consistente con el tipo ascrito $\nu$, para que la regla asigne el tipo $\nu$ a la ascripción. En la regla (Tapp), el tipo $\delta$ del argumento $w$ debe ser consistente con el dominio del tipo $\sigma$, de la función $v$, para que la aplicación reciba como tipo el codominio de $\sigma$. Una de las reglas donde no hay chequeo de consistencia es (T$\oplus$): si las expresiones $m$ y $n$ reciben exitosamente los tipos $\mu$ y $\nu$, entonces la selección $\choiceterm{\rho}{m}{n}$ recibe el tipo $\rho \cdot \mu + (1-\rho) \cdot \nu$. Las distribuciones $\rho\cdot\mu$ y $(1-\rho) \cdot \nu$ son el resultado de escalar las distribuciones $\mu$ y $\nu$, multiplicando todas sus probabilidades por $\rho$ y $1-\rho$, respectivamente. Si $\rho$ es $\Any$, su complemento también lo es. Además, $\rho_1 \cdot \rho_2 = \Any$ si cualquiera de las dos probabilidades graduales es desconocida. De lo contrario, el resultado es simplemente la multiplicación numérica. La suma $\mu_1 + \mu_2$  es la distribución resultante de la unión de todos los elementos de ambas distribuciones.
+
+  \input{rule/trules.tex}
+
+
+  En el lenguaje GPLC, la expresión $\LetTerm{x}{m}{n}$ tiene una
+  semántica especial.  En el lenguaje todas las expresiones
+  representan implícitamente una distribución de probabilidad, ya sea
+  de tipos o valores. En el caso de expresiones como $1$, que
+  representa una distribución de un solo elemento tanto a nivel de
+  tipo ($\distr{\Real^1}$) como a nivel de valor ($\distr{1^{1.0}}$),
+  la asignación a la variable no se diferencia del significado común
+  de este constructo. Sin embargo, este es solo un caso especial
+  dentro de GPLC , dado que cuando la expresión asignada representa
+  distribuciones de distintos tipos y/o valores, como
+  $\ChoiceTerm{0.5}{1}{\true}$, la semántica de tipado y evaluación
+  deben resolver qué significa la asignación de múltiples
+  tipos/valores a una variable, y lo que esto significa para $n$ con
+  $x$ como subexpresión.
+
+  En particular, si el juicio de tipado le asigna a la expresión
+  ligada $m$ el tipo de distribución $\distr{\sigma_1^{\rho_1},\cdots,\sigma_n^{\rho_n}}$, entonces el
+  tipo del cuerpo $n$ se determina para un $x$ con cada uno de los
+  tipos simples $\sigma_1, \cdots, \sigma_n$. Si el tipo de $n$ para
+  un $x$ con tipo $\sigma_i$ es el tipo de distribución $\mu_i$,
+  entonces el tipo determinado estáticamente para el bloque $\LetKW$
+  es
+\[ \rho_1\cdot\mu_1 + \cdots + \rho_n\cdot\mu_n\]
+
+
+
+
+
+En las siguientes subsecciones, todos los tipos son de fórmula, a menos que se exprese lo contrario.
+
+\section{Elaboración}\label{sec:elab}
+  
+La elaboración es el proceso que toma el AST del lenguaje fuente (una
+vez que la consistencia de tipos graduales ya ha sido chequeada
+estáticamente) y lo transforma en un AST del lenguaje destino. En esta
+transformación, son dos los cambios fundamentales que se realizan
+sobre el AST original: {(1)} Todos los tipos graduales presentes en la sintaxis del programa, en forma de ascripciones, son
+transformados en tipos de fórmula, para adaptarlos a los cómputos que
+se deben realizar con distribuciones simbólicas. {(2)} Cada una de las
+expresiones del programa es transformada a una expresión con
+ascripcion de tipo, de manera que en el tiempo de ejecución del lenguaje --que
+ocurre sobre este AST-- las expresiones pueden ser dinámicamente
+verificadas al momento de evaluarse. El producto de la elaboración es
+un AST del lenguaje destino.
+
+\section{Evidencia}\label{sec:evidence}
+En esta sección se introduce la noción de \emph{evidencia} usada en la
+formulación de GPLC para justificar, a partir de relaciones de
+precisión entre tipos, la consistencia que debe verificarse en el
+lenguaje destino. Primero se presenta la relación de
+precisión y la operación de ínfimo sobre tipos de fórmula, y luego se
+define la consistencia basada en evidencia, que cumple un papel central
+en las ascripciones y verificaciones dinámicas del lenguaje.
+
+\subsection{Precisión}\label{par:precision} Un sistema de tipos gradual como el de GPLC es un conjunto parcialmente ordenado. Este orden se denomina \emph{precisión} y se denota con el símbolo $\precise$. Las instancias más sencillas de esta relación sobre los tipos de fórmula son $\Real \precise \Real$, $\Bool \precise \Bool$, $\sigma\precise\Any$. El caso de los tipos de función (también tipos simples) es más complejo, pues el codominio de una función tiene tipo de distribución:
+\[
+  (\sigma_1 \to \mu_1) \precise (\sigma_2 \to \mu_2) \iff
+  \sigma_1 \precise \sigma_2 \land \mu_1 \precise \mu_2
+\]
+
+Al igual que en el caso de la consistencia, la precisión requiere una forma de comparar los tipos simples contenidos en una distribución. La definición de una relación de precisión entre distribuciones está definida de manera exactamente análoga a la definición de la consistencia, reemplazando $\sim$ por $\precise$ en las discusiones de \hyperref[par:consistency]{consistencia} y \hyperref[par:symbolic]{distribuciones de fórmula} de la sección \ref{sec:source-language}. Por ejemplo, entre los tipos $\sigma = \Fun{\Real}{\distr{\Real^{0.5},\Any^{0.5}}}$  y $\delta = \Fun{\Real}{\distr{\Any^1}}$ , la relación de precisión está definida y es $\sigma\precise\delta$, dado que el codominio de $\sigma$ es más preciso.
+
+\subsection{Ínfimo} Como en un sistema gradual existe un orden
+parcial, es posible determinar un ínfimo entre dos tipos relacionados
+por el orden de precisión, es decir, determinar el tipo más preciso
+entre ellos. Esta operación se denomina \emph{meet}, por la palabra en
+inglés usada en retículos para denominar al ínfimo, y se denota por
+$\meet$.  Los casos base de definición están dados por $\Real \meet \Real = \Real$, $\Bool \meet \Bool = \Bool$, $\sigma \meet \Any = \Any \meet \sigma = \sigma$. El ínfimo entre dos tipos de función se define de manera similar a las relaciones definidas anteriormente. Si $\sigma_1\meet\sigma_2$ y $\mu_1 \meet \mu_2$ están definidos, entonces \[\Fun{(\sigma_1\meet\sigma_2)}{(\mu_1 \meet \mu_2)}\]
+
+Para tipos de distribución, a diferencia de la consistencia y la precisión, $\meet$ es una operación binaria que produce otro tipo, y no solo un juicio (que operacionalmente retorna $\true$ o $\false$). Por lo tanto, no basta con verificar que existe cierta relación entre los tipos simples de dos distribuciones, sino que es necesario producir una nueva distribución cuyos tipos simples son el producto de los tipos simples de las distribuciones argumento. La aproximación a esta tarea es determinar la existencia de un coupling $\coupling$ con respecto a la relación binaria $R_{\meet}$ entre los tipos $\sigma$ y $\delta$ para los cuales $\meet$ está definida.
+\[ \sigma \rel{\meet} \delta \quad \iff \quad {(\sigma,\delta)\in \operatorname{dom}(\meet)}\]
+La existencia de $\coupling$ determina que la operación $\mu \meet \nu$ entre tipos de distribución de fórmula está definida, y tomando el subconjunto $ I = \{ (i,j) |  \sigma_i \rel{\meet} \delta_j \}$ de los subíndices de las entradas $\alpha_{ij}$ de $\coupling$, la fórmula $\Phi$ de todas las restricciones sobre las variables de $\coupling$, y las fórmulas $\Phi_1$ y $\Phi_2$ de las distribuciones, el ínfimo de las  define como 
+\[ (\Phi \land \Phi_1 \land \Phi_2) \formop \distr{ (\sigma_i \meet \delta_j) ^{\alpha_{ij}} \setbuild (i,j) \in I}  \]
+
+\subsection{Ascripción y consistencia basada en evidencia}
+\label{sec:lang-trgt-ascr}
+La sintaxis abstracta del lenguaje destino es muy similar a la del lenguaje fuente.  Sin embargo dos elementos cambian notablemente. Todos los tipos se expresan en esta representación del lenguaje como tipos de fórmula, y las ascripciones ahora son de la forma $\eascr{\epsilon}{v}{\delta}$ y $\eascr{\xi}{m}{\nu}$, para ascripción de tipos de fórmula simples y de distribución, respectivamente. El tipo simple $\epsilon$ (tipo de distribución $\xi$) tiene como función justificar la relación de consistencia entre el tipo inferido del valor $v$ (expresión $m$) y el tipo ascrito $\delta$ ($\nu$).
+
+A diferencia de la ascripción usada en el lenguaje fuente, la cual se valida cuando existe una relación de consistencia entre el tipo inferido del término ascrito y el tipo ascrito, la ascripción basada en evidencia se valida mediante un juicio de \emph{consistencia basada en evidencia}, el cual se define, en la figura \ref{fig:econsistency}, para tipos simples y de distribución en términos de la relación de precisión.
+\begin{figure}[htbp]
+\centering
+\setlength{\belowdisplayskip}{2pt}
+\setlength{\abovedisplayskip}{4pt}
+\begin{align*}
+\econsistency{\epsilon}{\sigma}{\delta} &\iff  \epsilon \precise \sigma \land \epsilon \precise \delta\\
+\econsistency{\xi}{\mu}{\nu} &\iff  \xi \precise \mu \land \xi \precise \nu
+\end{align*}
+\captionsetup{skip=2pt}
+\caption{Consistencia basada en evidencia}
+\label{fig:econsistency}
+\end{figure}
+
+Una ascripción con evidencia se valida estáticamente cuando el tipo inferido del término ascrito tiene una relación de consistencia con el tipo ascrito, justificada por la evidencia de la ascripción, es decir,  $\eascr{\xi}{m}{\nu}$ si y solo si la expresión $m$ tiene un tipo $\mu$ y $\econsistency{\xi}{\mu}{\nu}$.
+
+En el AST destino, todas las expresiones llevan una ascripción con evidencia que las chequea. Es responsabilidad de la elaboración transformar cada expresión fuente a una expresión destino con ascripción, que prepara el programa para todas las verificaciones dinámicas del tiempo de ejecución sobre el programa destino. La forma en que la elaboración inserta las ascripciones depende del término elaborado. Por ejemplo en la regla (E$\lambda$) de elaboración de una expresión lambda (figura \ref{fig:elab-rules}), tanto la evidencia como el tipo ascrito son el tipo $\Fun{\sigma}{\mu}$ inferido de $\lambda x : \sigma . m$, pero transformado a tipo de fórmula, lo cual se denota $\lifttype{\Fun{\sigma}{\mu}}$.  El símbolo $\elab{}{}$ es el operador de elaboración, y los términos y tipos en color rojo son términos elaborados y tipos de fórmula, respectivamente. La regla (E+) de elaboración de la adición presenta un patrón distinto, seguido por varias otras reglas de elaboración: la expresión fuente se elabora a una cadena de dos bloques {\sffamily let}, a cuyas variables se asignan los operandos ascritos. Las evidencias de ambos términos son los ínfimos $\epsilon_i$ entre el tipo inferido por el sistema de tipos del lenguaje fuente, y el tipo simple $\Real$, el cual es el tipo \emph{esperado}.
+
+\input{rule/erules.tex}
+
+
+\label{sec:evidence}
+
+
+\section{Lenguaje destino}\label{sec:target-language}
+
+El AST destino es la representación final del programa, sobre la cual ocurre el tiempo de ejecución.
+
+
+\subsection{Términos}\label{par:tplc-terms} El conjunto de términos del lenguaje destino incluye todos los términos del lenguaje fuente presentados en la sección \ref{par:source-term}, en una forma similar. Las diferencias más notables figuran en los términos de ascripción, la cual en este lenguaje lleva como prefijo un tipo llamado evidencia. Además en este lenguaje, a diferencia del lenguaje fuente, donde los tipos son graduales, todos los tipos son de fórmula.
+
+Además de los términos con una correspondencia directa a aquellos del lenguaje fuente, también se introducen los siguientes términos:
+\begin{itemize}
+\item \emph{Valor Crudo.} Es un literal numérico o booleano, o una expresión lambda. $7$, $\true$, $\lambdaterm{x}{\Real}{(x + x)}$ son ejemplos de valores crudos.
+\item \emph{Valor.} Es una ascripción cuyo término ascrito es un valor crudo.
+\item \emph{Distribución de Valor.} Es una distribución simbólica como la del tipo de distribución de fórmula, pero con valores en vez de tipos simples.
+\end{itemize}
+
+\subsection{Tipado destino}
+
+ En el lenguaje destino, el juicio de tipado definido
+  sobre el AST le asigna a cada término un tipo de fórmula. A
+  diferencia de las reglas de tipo definidas para los términos del
+  lenguaje fuente, las reglas del lenguaje destino se apoyan en la
+  consistencia basada en evidencia para verificar las condiciones que
+  permiten asignar un tipo a un término. La mayor importancia práctica
+  de esta regla, desde el punto de vista de una implementación de la
+  semántica, es que permite inferir el tipo de una expresión ascrita
+  por un tipo de distribución: el tipo de dicha expresión es un
+  componente fundamental en la conformación de la distribución de
+  valores a la cual se reduce la ascripción.
+
+
+
+\subsection{Evaluación} El tiempo de ejecución del lenguaje destino tiene como propósito reducir el AST destino a una distribución de valores. Un conjunto de reglas semánticas definen la forma de reducir cada una de las expresiones a distribuciones simbólicas sobre valores del lenguaje. El resultado final retornado para el programa es una distribución de valores, con una fórmula satisfacible asociada, que restringe los valores reales de las probabilidades simbólicas.
+
+
+
+

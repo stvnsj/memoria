@@ -1,0 +1,36 @@
+% Reglas de tipado
+
+\begin{figure}[htbp]
+\begin{mathpar}
+\inferrule[(T::)]
+{
+  \Gamma \vdash m : \mu \\
+  \mu \sim \nu \\
+  \vdash \nu
+}
+{
+  \Gamma \vdash m :: \nu : \nu
+}
+
+\inferrule[(T$\oplus$)]
+{
+  \Gamma \vdash m : \mu \\
+  \Gamma \vdash n : \nu
+}
+{
+  \Gamma \vdash m \oplus_{\rho} n : \rho \cdot \mu + (1-\rho)\cdot \nu
+}
+
+\inferrule[(Tapp)]
+{
+  \Gamma \vdash v : \sigma \\
+  \Gamma \vdash w : \delta \\
+  \delta \sim \widetilde{\operatorname{dom}}(\sigma)
+}
+{
+  \Gamma \vdash v\,w : \widetilde{\operatorname{cod}}(\sigma)
+}
+\end{mathpar}
+\caption{Reglas de tipado}
+\label{fig:src-type}
+\end{figure}

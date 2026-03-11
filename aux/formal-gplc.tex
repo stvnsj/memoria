@@ -1,0 +1,89 @@
+% -*- TeX-master: "../main.tex" -*-
+
+\newcommand{\Note}[1]{ {\sffamily \color{red} >>#1<< }}
+
+
+\newcommand{\mynote}[3]
+    {{\color{#3} \fbox{\bfseries\sffamily\scriptsize#1}
+    {\small$\blacktriangleright$\textsf{\emph{#2}}$\blacktriangleleft$}}~}
+
+% \renewcommand{\mynote}[2]{}
+
+\newcommand*{\sftxt}[1]{\text{\sffamily {#1}}}
+
+\newcommand*{\andop}{\text{\sffamily {and}}}
+\newcommand*{\orop}{\text{\sffamily {or}}}
+
+\newcommand*{\mthtxt}[1]{\mathop{\text{\sffamily #1}}}
+
+\newcommand*{\mylet}{\mthtxt{let}}
+\newcommand*{\myin}{\mthtxt{in}}
+
+\newcommand*{\LetKW}{\mthtxt{let}}
+
+
+\newcommand*{\Vdistr}{\mathscr{V}}
+
+\newcommand*{\mychoice}[1]{\mathop{\oplus_{#1}}}
+\newcommand*{\ascr}{\mathop{\text{\sffamily ::}}}
+\newcommand*{\meet}{\mathop{\sqcap}}
+\newcommand*{\econsistency}[3]{#1 \vdash #2 \sim #3} % Consistencia con evidencia 
+\newcommand*{\eascr}[3]{#1\, #2 \ascr #3} % Ascripción con evidencia
+\newcommand*{\distr}[1]{\{\mskip-7mu\{ {#1} \}\mskip-7mu\}} % Multiconjunto distribución
+\newcommand*{\setbuild}{\mathop{|}} % Divisor de elemento abstracto y condiciones
+\newcommand*{\formop}{\mathop{\rhd}} 
+\newcommand*{\myland}{\mathop{\land}}
+\newcommand*{\rel}[1]{\mathop{\text{\sffamily R}_{#1}}}
+\newcommand*{\lifttype}[1]{\lceil {#1} \rceil}
+\newcommand*{\elab}[2]{#1 \rightsquigarrow #2}
+\newcommand*{\letblock}[3]{\text{\sffamily let } {#1} = {#2} \text{\sffamily { in }} {#3}}
+\newcommand*{\lambdaterm}[3]{\lambda {#1} : {#2} \,.\, {#3}}
+\newcommand*{\ifterm}[3]{\sftxt{if } {#1} \sftxt{ then } {#2} \sftxt{ else } {#3}}
+\newcommand*{\choiceterm}[3]{{#2} \oplus_{#1} {#3}}
+
+% Other Symbols
+\newcommand{\coupling}{\mathscr{C}}
+
+% GPLC TYPES
+\newcommand*{\Real}{\mathord{\text{\sffamily Real}}}
+\newcommand*{\Int}{\mathord{\text{\sffamily Int}}}
+\newcommand*{\Bool}{\mathord{\text{\sffamily Bool}}}
+\newcommand*{\Any}{\mathord{\text{\sffamily ?}}} % or \ttfamily
+\newcommand*{\Unit}{\mathord{\text{\sffamily Unit}}}
+\newcommand*{\unit}{\mathord{\text{\sffamily unit}}}
+
+% BOOLEAN VALUES
+\newcommand*{\true}{\mathord{\text{\sffamily true}}}
+\newcommand*{\false}{\mathord{\text{\sffamily false}}}
+
+\newcommand*{\precise}{\sqsubseteq}
+
+
+\newcommand{\mt}[1]{\mynote{MT}{#1}{red}}
+\newcommand{\fo}[1]{\mynote{FO}{#1}{blue}}
+\newcommand{\js}[1]{\mynote{JS}{#1}{Grey}}
+\newcommand{\replace}[2]{\textcolor{Magenta}{\sout{#1}} \textcolor{ForestGreen}{#2}}
+\newcommand{\add}[1]{\textcolor{Goldenrod}{#1}}
+\newcommand*{\ldblbrace}{\{\mskip-5mu\{}
+\newcommand*{\rdblbrace}{\}\mskip-5mu\}}
+\newcommand*{\choicebin}[2]{\oplus_{\frac{#1}{#2}}}
+\newcommand*{\choiceun}[1]{\oplus_{#1}}
+\newcommand*{\Fun}[2]{#1 \to #2}
+\newcommand*{\Mterm}{\mathsf{m}}
+\newcommand*{\Nterm}{\mathsf{n}}
+\newcommand*{\Env}{\Gamma}
+
+
+
+
+
+
+
+
+\newcommand*{\LetTerm}[3]{\text{\sffamily let } {#1} = {#2} \text{\sffamily { in }} {#3}}
+\newcommand*{\ChoiceTerm}[3]{{#2} \oplus_{#1} {#3}}
+
+
+
+
+

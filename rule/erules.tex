@@ -1,0 +1,34 @@
+% Reglas de Elaboración GPLC
+
+\begin{figure}[htbp]
+  \centering
+  \begin{mathpar}
+\inferrule[(E$\lambda$)]
+{
+  \Gamma, x:\sigma \vdash m : \mu \rightsquigarrow {\color{Red}m} \quad
+  {\color{Red}\varepsilon} = \lceil\sigma \to \mu\rceil \quad
+  \vdash \sigma
+}
+{
+  \Gamma \vdash \lambda x:\sigma.\,m : \sigma \to \mu \rightsquigarrow
+  {\color{Red}\varepsilon\,\lambda x:[\sigma].\,m' :: [\sigma \to \mu]}
+}
+
+\inferrule[(E+)]
+{
+  \Gamma \vdash v : \sigma \rightsquigarrow {\color{Red}v} \quad  \sigma \sim \Real\quad
+  \Gamma \vdash w : \delta \rightsquigarrow {\color{Red}w} \quad \delta \sim \Real\\
+  {\color{Red}\varepsilon_1} = \lceil\sigma\rceil \meet {\color{Red}\Real} \quad 
+  {\color{Red}\varepsilon_2} = \lceil\delta\rceil \meet {\color{Red}\Real} \\
+}
+{
+  \Gamma \vdash v + w : \distr{\Real^{1}} \rightsquigarrow
+ {\color{Red} \LetTerm{x}{\varepsilon_1 v' :: \Real}{
+    \LetTerm{y}{\varepsilon_2 w' :: \Real}{x+y}}
+  }\\
+}
+\end{mathpar}
+  \caption{Elaboración de términos fuente a términos destino}
+  \label{fig:elab-rules}
+\end{figure}
+

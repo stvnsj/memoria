@@ -1,0 +1,25 @@
+% -*- TeX-master: "../main.tex" -*-
+
+\chapter{Estado del arte}\label{sec:estado}
+
+
+\section{Implementaciones graduales}
+
+Los lenguajes basados en AGT \citep{agt, union, toro2018, param, system-f, sensitivity} cuentan todos con implementaciones de prototipos de intérpretes. No existe un marco general para la implementación de intérpretes basados en esta metodología, y cada uno de estos intérpretes se basa parcialmente en el código base de los anteriores. Sus implementaciones son en su mayoría \emph{ad hoc}, orientadas a satisfacer las necesidades del dominio específico de cada lenguaje, por lo que su uso directo en este trabajo es limitado.
+
+En cuanto a la implementación eficiente de lenguajes graduales en tiempo de ejecución, \citet{campora} presentan el concepto de tipado discriminativo, en el cual se generan dos versiones de cada función: una versión rápida y una lenta. La versión rápida infiere el tipo de los parámetros y se invoca siempre que el tipo del argumento coincida con el tipo inferido, reduciendo así el número de verificaciones en tiempo de ejecución. La versión lenta se invoca cuando los tipos no coinciden, ejecutando todas las verificaciones dinámicas necesarias para mantener la seguridad del lenguaje.
+
+\section{Solucionadores SMT}
+
+Una parte muy importante para un intérprete eficaz y eficiente de GPLC es un solucionador SMT, que es un tipo de software capaz de verificar la satisfacibilidad de fórmulas de primer orden sobre aritmética lineal de enteros o reales \citep{monniaux}. cvc5 \citep{cvc5} es un solucionador SMT destacado por mostrar un rendimiento superior en lógica de aritmética real lineal, que es la lógica de los sistemas de ecuaciones de probabilidad simbólica que el intérprete necesita resolver.
+
+Dado el tamaño y complejidad de los sistemas de ecuaciones cuya satisfacibilidad debería ser determinada en los chequeos estáticos y dinámicos de GPLC, una parte muy importante en la implementación eficaz y eficiente de un intérprete es el uso de un solucionador SMT, una herramienta capaz de verificar la satisfacibilidad de fórmulas de primer orden sobre teorías como aritmética, bit‑vectors, arreglos o funciones no interpretadas. Varios solucionadores destacados han demostrado su eficacia en estos contextos. Por ejemplo, Z3~\citep{MouraB08}, desarrollado por Microsoft Research, es un solucionador eficiente ampliamente empleado en verificación de software y análisis formal. cvc5~\citep{KremerReynoldsBarrettTinelli22} sobresale especialmente en aritmética real lineal y también maneja razonamiento no lineal. Otros solucionadores competitivos incluyen Yices2 y MathSAT, que aportan diferentes enfoques para el tratamiento de aritmética y teorías combinadas. En conjunto, estos solucionadores ofrecen un conjunto robusto de opciones para abordar las ecuaciones simbólicas de probabilidad que un intérprete gradual como GPLC requiere.
+
+\section{Cálculo lambda probabilístico gradual}
+
+El artículo de \citet{gplc}, en el que se basa este trabajo, presenta el primer cálculo lambda probabilístico con tipado gradual. El Cálculo Lambda Probabilístico Gradual (GPLC) se deriva del lenguaje con tipado estático SPLC, desarrollado en el mismo artículo, utilizando la metodología AGT de \citet{agt}. El sistema de tipos del lenguaje posee dos categorías mutuamente recursivas de tipos: los tipos simples y los tipos de distribución. Estos últimos representan distribuciones de tipos simples y otorgan al sistema de tipos su carácter probabilístico.
+
+El lenguaje GPLC se transforma a un lenguaje destino llamado TPLC, sobre el cual se definen la semántica estática y dinámica del lenguaje, y en el cual se introducen ascripciones de tipo en cada término para chequear inconsistencias dinámicamente. La semántica estática se basa fuertemente en el concepto de \emph{acoplamiento probabilístico} para elevar relaciones como la consistencia y precisión, entre tipos simples graduales, a tipos de distribución. La semántica en tiempo de ejecución hace un uso extensivo de evidencias, introducidas por \citet{agt}, para asegurar que no ocurran inconsistencias en tiempo de ejecución. Todos los programas se evalúan como distribuciones sobre valores.
+
+En las distintas representaciones intermedias del lenguaje, tanto las probabilidades que aparecen en el operador de selección binaria probabilística como aquellas presentes en las distribuciones de probabilidad sobre tipos o valores, se representan como símbolos, que pueden ser constantes con un valor concreto $r\in[0,1]$, en el caso de las probabilidades conocidas, o ser una variable en el intervalo $[0,1]$ cuando se trata de la probabilidad gradual desconocida $?$, y se denominan probabilidades simbólicas. El juicio de consistencia y otras operaciones entre tipos deben determinar la satisfacibilidad de sistemas de restricciones sobre probabilidades simbólicas, denominadas \emph{fórmulas}, y que restringen los valores simultáneos que las probabilidades simbólicas pueden tener.
+

@@ -1,0 +1,173 @@
+% -*- TeX-master: "../main.tex" -*-
+
+\chapter{Conclusiones y trabajo futuro}
+
+Este capítulo sintetiza los principales resultados obtenidos en el desarrollo del intérprete de GPLC y proyecta líneas de trabajo futuro relevantes. Por una parte, se presentan las conclusiones del trabajo, destacando el alcance del prototipo como implementación ejecutable de la semántica del lenguaje, su valor como medio de experimentación y la decisión de diseño de trasladar la formulación teórica fielmente a una implementación concreta. Por otra, se exponen líneas de trabajo futuro motivadas por las limitaciones identificadas durante la validación, incluyendo aspectos relacionados con la semántica formal, la representación del resultado, la resolución de fórmulas, el tipado de operaciones, la equivalencia semántica y la optimización de operaciones.
+
+
+
+\section{Conclusiones}
+
+\subsection{Implementación de la semántica de GPLC}
+
+
+
+El principal resultado de este trabajo es la construcción de un intérprete que materializa, de manera ejecutable, la semántica estática y dinámica de GPLC presentada en la formulación de \cite{gplc} y la confirmación experimental de que dicha formulación funciona cuando es llevada a la práctica. Esto se traduce en dos hechos fundamentales: (1) el sistema de tipos rechaza estáticamente programas inconsistentes de acuerdo con el tipado gradual, que incorpora, además del tipo desconocido, probabilidades desconocidas, y (2) la semántica operacional reduce los programas a un resultado concreto y previsible según las reglas de la semántica operacional, y es capaz de rechazar dinámicamente programas con errores de tipo.
+
+\subsection{Plataforma de experimentación}
+El intérprete se constituye como un medio efectivo de experimentación
+para la investigación relacionada con el lenguaje, lo cual cumple el
+objetivo fundamental de este trabajo. Mediante el soporte que entrega
+a la totalidad de sus constructos, es capaz de cumplir un rol
+experimental relevante en la ejecución de programas de interés, en el
+análisis del comportamiento del sistema de tipos, en la comprobación de
+resultados esperados y en la verificación del término exitoso de programas o de errores controlados.
+
+
+\subsection{Arquitectura alineada con la semántica formal}
+El diseño de la arquitectura del intérprete tiene una correspondencia muy estrecha
+con la estructura presentada en la exposición del lenguaje: el pipeline principal de
+tareas refleja de manera transparente y directa las fases de tipado, elaboración y evaluación. Este hecho facilita la trazabilidad de la teoría en la implementación, permitiendo razonar con mayor facilidad acerca del diseño y funcionamiento interno del intérprete. Entre las ventajas que esto otorga, se encuentran una mayor facilidad de corrección y extensibilidad para otros desarrolladores que estén familiarizados con GPLC.
+
+\subsection{Revisión de la teoría}
+La implementación entregó evidencia concreta de casos en que la
+ejecución produce resultados no esperados, o no termina. Este tipo de
+fenómenos, además de motivar revisiones focalizadas de la
+implementación, también fundamenta un examen crítico de reglas
+específicas del formalismo. Durante el proceso de desarrollo, la
+identificación de inconsistencias en el funcionamiento del intérprete
+ya ha impulsado el rediseño de reglas de tipado en el cálculo formal
+de GPLC, lo cual demuestra el potencial de la experimentación como
+mecanismo de mejora de la teoría.
+
+
+\subsection{Ineficiencias y cobertura de programas}
+Finalmente, en el diseño del intérprete, el foco no se ha colocado en la
+optimización de su funcionamiento, puesto que el objetivo esencial es
+proveer un medio de experimentación para un modelo teórico. Sin
+embargo, la ineficiencia asociada al manejo de operaciones con
+distribuciones simbólicas limita la magnitud de los programas que el
+intérprete puede ejecutar, y por lo tanto, restringe su alcance como
+herramienta de investigación. Por lo tanto, hacen falta ajustes en el
+diseño de algoritmos con recursión profunda y acumulación de fórmulas,
+que actualmente están implementados como traducciones literales de la
+formulación teórica.
+
+\section{Trabajo futuro}
+
+\subsection{Correcciones en la semántica formal}
+
+ Como trabajo futuro, todo programa que demuestre un comportamiento
+erróneo o no esperado justifica no solo un examen y pruebas acuciosas
+de la implementación del código fuente del intérprete, sino también
+una revisión de la semántica formal del lenguaje en que se basa
+esta implementación. En particular, los
+problemas relacionados con la regla de reducción de la ascripción
+\lstinline|Dascr| observados en la ejecución fundamentan una revisión
+de dicha regla.
+
+\subsection{Representación del resultado} En el prototipo, el resultado se presenta como una distribución con pesos simbólicos, pero sin exponer la fórmula que restringe esos pesos. Esto puede volver la salida poco informativa cuando se requieren probabilidades numéricas o una explicación de las restricciones.
+
+Un trabajo futuro natural es mejorar la forma en que el intérprete
+comunica el resultado al usuario. En primer lugar, sería valioso
+permitir que la ejecución muestre la fórmula que restringe las
+probabilidades, de manera parcial y estratégica, y en un formato que
+favorezca su legibilidad, pues la fórmula explica qué asignaciones
+reales son compatibles con la distribución retornada.  En segundo
+lugar, sería deseable habilitar un modo de instanciación de
+probabilidades simbólicas, ya sea extrayendo un modelo desde el solucionador
+cuando exista, o permitiendo que el usuario entregue valores para las
+probabilidades desconocidas \lstinline|?|.
+
+
+
+\subsection{Resolución de fórmulas} La satisfacibilidad de fórmulas se consulta de forma transversal y repetida durante la evaluación. Sin embargo, cuando cada invocación al solucionador se resuelve desde cero, el costo se acumula especialmente en operaciones donde las restricciones se forman por agregación de subfórmulas.
+
+Un trabajo futuro relevante es explorar un enfoque incremental que
+permita reutilizar información entre chequeos sucesivos, reduciendo el
+costo de resolver sistemas que se forman, en parte, por acumulación de
+restricciones ya chequeadas. Sin embargo, esta mejora debe diseñarse
+con cuidado, dado que, incluso si una subfórmula es soluble, su
+solución no necesariamente es compatible con una solución del sistema
+completo cuando se agregan nuevas restricciones. Por ello, una
+dirección razonable es reutilizar contexto y restricciones de manera
+segura, sin asumir extensibilidad automática de
+subfórmulas. Una ventaja en este sentido es que el solucionador Z3
+  cuenta con soporte nativo para resolución incremental, manteniendo un
+  contexto de restricciones que puede extenderse y revertirse. Sin
+  embargo, este soporte no se traduce automáticamente en un enfoque
+  incremental en el intérprete, pues requiere decidir qué contexto
+  preservar, qué restricciones mantener y cómo reutilizarlas,
+  sin asumir extensibilidad de soluciones parciales al agregar nuevas
+  restricciones. En consecuencia, cualquier diseño de algoritmo o heurísticas
+  con respecto a este problema puede apoyarse en las funcionalidades
+  incrementales de Z3, pero integrándolas de manera segura.
+
+\subsection{Tipado de operaciones binarias} El diseño
+  actual del sistema de tipos interpreta las operaciones binarias como
+  expresiones con tipo de distribución de Dirac, lo que entra en tensión con
+  constructos que esperan valores simples. En consecuencia,
+  subexpresiones aritméticas y booleanas pueden quedar conceptualmente
+  ambiguas entre \emph{valor} y \emph{distribución}.
+
+Esta limitación sugiere la necesidad de un rediseño que compatibilice
+la interpretación de expresiones como distribuciones con los contextos
+del lenguaje que esperan valores simples. Una línea de trabajo futuro
+consiste en introducir un mecanismo explícito que permita tratar, por
+ejemplo, \lstinline|{Real:1}| como \lstinline|Real| cuando el contexto
+lo requiera, o bien adoptar un sistema de tipado más sensible al tipo
+esperado por el contexto. En particular, uno de los desafíos está dado
+por el hecho de que la elaboración transforma las operaciones binarias
+en $\LetKW$ (el cual está típicamente asociado a la generación de
+distribuciones), como se muestra a continuación:
+\begin{equation*}
+  v1 + v2  \mathrel{\leadsto} \LetTerm{x}{\eascr{\epsilon_1}{v_1}{\Real}}{\LetTerm{y}{\eascr{\epsilon_2}{v_2}{\Real}}{x+y}}
+\end{equation*}
+Sería importante, por lo tanto, distinguir
+en el lenguaje destino entre los $\LetKW$ insertados
+por la elaboración para chequear los valores
+sumados, y aquellos que provienen de un $\LetKW$ en el
+lenguaje fuente.
+
+\subsection{Equivalencia semántica de expresiones}
+ Actualmente no existe un mecanismo interno para comparar
+  expresiones o distribuciones resultantes. Esto dificulta automatizar
+  pruebas que contrasten formalmente un resultado esperado con el
+  observado, y limita la validación sistemática del comportamiento del
+  lenguaje.
+
+Una extensión importante del lenguaje sería
+incorporar un mecanismo para comparar expresiones
+del lenguaje fuente por equivalencia semántica, lo
+que se traduce en comparar las distribuciones de
+valores que dichas expresiones generan. Para ello
+será necesario definir primero qué significa
+igualdad entre valores (incluyendo el rol del tipo
+ascrito) y decidir cómo tratar valores
+funcionales, que se evalúan a clausuras. Con esa
+base, podría definirse una noción de igualdad
+entre distribuciones que considere tanto el
+soporte como las restricciones sobre
+probabilidades simbólicas. En presencia de
+probabilidades desconocidas, también resulta natural estudiar
+una igualdad parcial: distribuciones
+que coinciden para algún conjunto no vacío de
+instanciaciones de probabilidades simbólicas.
+
+
+
+
+\subsection{Optimización de operaciones}  En el lenguaje
+  destino, \lstinline|Let| y \lstinline|Dascr| aparecen
+  recurrentemente y ejecutan operaciones costosas entre distribuciones
+  de tipos en tiempo de ejecución. En programas no triviales, este
+  patrón eleva sustancialmente el costo y restringe la escalabilidad
+  del prototipo.  Por ello, un trabajo futuro relevante es estudiar
+  estrategias para reducir el crecimiento del tamaño de distribuciones
+  y fórmulas durante la evaluación. En términos generales, esto apunta
+  a evitar combinaciones innecesarias en operaciones $m\times n$, y a
+  simplificar distribuciones y restricciones antes de delegar al
+  solucionador. El objetivo sería mejorar la escalabilidad del prototipo,
+  permitiendo ejecutar programas más grandes y observar
+  comportamientos que hoy quedan fuera por costo computacional.
+

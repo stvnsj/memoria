@@ -1,0 +1,129 @@
+% -*- TeX-master: "../main.tex" -*-
+\chapter{Introducción}
+
+Los lenguajes de programación probabilística son lenguajes de
+programación que incluyen alguna operación o construcción incorporada
+que facilita la implementación de programas probabilísticos. Estos son
+programas que representan una distribución de probabilidad implícita y
+que, en última instancia, pueden reducirse a una representación
+explícita de dicha distribución o a una muestra tomada de ella
+\citep{prob-prog}. Los lenguajes de programación probabilística han
+adquirido una importancia creciente debido a sus aplicaciones en
+inferencia bayesiana y aprendizaje automático.
+
+La mayoría de los lenguajes de programación poseen alguna forma de
+tipado que, en general, cumple funciones como la detección de errores,
+la restricción en la interacción entre módulos, la documentación de
+funciones y variables, el aumento de la seguridad del lenguaje y la
+facilitación del razonamiento sobre los programas
+\citep{pierce}. Dependiendo de si la verificación de tipos se realiza
+durante el tiempo de compilación o en tiempo de ejecución, se habla de
+tipado estático o dinámico, respectivamente. Cada sistema tiene sus
+ventajas y desventajas: el tipado estático permite detectar errores de
+manera temprana, pero puede resultar demasiado restrictivo durante el
+desarrollo de prototipos, mientras que el tipado dinámico permite un
+desarrollo más rápido, a costa de un tiempo de ejecución más lento y
+de la posibilidad de que algunos errores pasen desapercibidos.
+
+El tipado gradual~\citep{gt} ofrece un equilibrio entre las dos
+formas de tipado, mediante la introducción de tipos parcialmente
+conocidos, que pueden ir desde un tipo completamente desconocido
+($\Any$), hasta un tipo completamente preciso (por ejemplo, $\Int$),
+incluyendo cualquier tipo compuesto parcialmente conocido (por
+ejemplo, $\Fun{\Int}{\Any}$). En tiempo de compilación, el sistema de
+tipos realiza un análisis estático para detectar posibles
+inconsistencias de tipos. Si el programa es consistente, se asume que
+está bien tipado, y el sistema comprueba en tiempo de ejecución si
+esta suposición se mantiene. De este modo, puede lograrse cualquier
+proporción de tipado estático y gradual (incluyendo tipado totalmente
+estático o totalmente dinámico).
+
+Se han desarrollado variantes gradualmente tipadas para lenguajes con
+una amplia variedad de sistemas de tipos: orientados a objetos
+\citep{siek2007,taki2012}, con efectos \citep{banados2014},
+con tipado de seguridad \citep{fennell2013}, con control de seguridad
+\citep{toro2018}, con referencias mutables \citep{gt,siek2015c,toro2020}, con tipos algebraicos de datos
+\citep{malewski2021}, entre otros. Sin embargo, hasta hace poco no se
+había intentado desarrollar un lenguaje probabilístico gradual.
+
+El trabajo de \cite{gplc} introdujo el primer lenguaje probabilístico
+gradual, el cálculo lambda probabilístico gradual o GPLC (por sus
+siglas en inglés, \emph{Gradual Probabilistic Lambda Calculus}), que
+en su extremo estático corresponde a un cálculo lambda equipado con
+una operación de elección probabilística binaria. Este lenguaje
+estático se extiende al lenguaje gradual GPLC mediante la metodología
+AGT, propuesta por \cite{agt}.
+
+
+La relevancia de GPLC no radica únicamente en proponer una nueva
+combinación de ideas ya conocidas, sino en reunir en un mismo lenguaje
+dos dimensiones de incertidumbre que suelen estudiarse por separado:
+la incertidumbre propia del cómputo probabilístico y la incertidumbre
+asociada a la información de tipos parcial o no especificada. Esta
+combinación vuelve especialmente interesante estudiar no solo la
+formulación formal del lenguaje, sino también su comportamiento
+efectivo al ejecutar programas concretos, observar sus resultados y
+contrastarlos con la intuición que motiva su diseño.
+
+En este contexto, la construcción de un intérprete cumple un papel que
+va más allá de la mera implementación de software. Una formulación
+teórica permite definir con precisión la sintaxis, el sistema de tipos
+y las reglas de evaluación de un lenguaje, pero una herramienta
+ejecutable obliga a traducir esas definiciones a estructuras de datos,
+algoritmos y mecanismos concretos de procesamiento. Esa traducción
+hace posible someter el lenguaje a experimentación sistemática,
+contrastar casos de uso reales, detectar ambigüedades o tensiones de
+diseño y evaluar de manera más directa el alcance práctico de la
+propuesta formal.
+
+La presente memoria aborda ese problema mediante el desarrollo de un
+intérprete prototipo de GPLC implementado en
+OCaml~\citep{ocaml-system}. La elección de este lenguaje responde a
+que ofrece un entorno especialmente adecuado para la implementación de
+lenguajes de programación, tanto por su soporte para tipos algebraicos
+y \emph{pattern matching} como por su utilidad para representar y manipular
+estructuras recursivas como el AST.
+
+El objetivo principal de esta memoria es desarrollar un intérprete
+prototipo para el lenguaje GPLC, que implemente fielmente la semántica
+de distribución descrita por \cite{gplc} y permita la ejecución
+práctica de programas probabilísticos graduales. Con este intérprete
+se realizará una validación empírica de la semántica existente
+mediante la ejecución de ejemplos con diversas combinaciones de
+constructos y distintos niveles de anotación gradual, de modo que se
+compruebe su corrección y se observe su comportamiento en escenarios
+reales.
+
+De este modo, el aporte de esta memoria consiste en implementar la
+propuesta formal de GPLC en un intérprete. En particular, esta memoria
+busca aportar una herramienta que permita ejecutar programas que antes
+existían únicamente como objetos de estudio teórico, y que a la vez
+sirva como plataforma de experimentación para analizar el
+comportamiento del lenguaje, examinar los alcances de su sistema de
+tipos y producir evidencia concreta sobre la consistencia de su diseño
+semántico.
+
+Al mismo tiempo, la implementación permite evaluar de manera más
+precisa qué aspectos de la formulación pueden implementarse de manera
+directa en el intérprete y cuáles introducen dificultades no evidentes
+en la exposición teórica. En este sentido, el intérprete no solo
+constituye una herramienta para ejecutar programas, sino también un
+medio para poner a prueba la teoría desde la práctica,
+retroalimentando la comprensión del lenguaje a partir de su
+comportamiento observable.
+
+El resto de esta memoria se organiza de la siguiente manera. El
+Capítulo 2 presenta el marco teórico necesario sobre lenguajes
+probabilísticos, sistemas de tipos estáticos y tipado gradual. El
+Capítulo 3 revisa el estado del arte más directamente relacionado con
+implementaciones graduales y con el trabajo teórico en que se basa
+GPLC. El Capítulo 4 expone el lenguaje GPLC desde su formulación
+teórica. El Capítulo 5 presenta su sintaxis concreta y describe el
+comportamiento general del intérprete desarrollado. El Capítulo 6
+detalla la arquitectura del intérprete, mientras que el Capítulo 7
+aborda las decisiones principales de implementación. El Capítulo 8
+presenta la validación experimental mediante programas representativos
+y discute las limitaciones observadas durante el
+desarrollo. Finalmente, el Capítulo 9 expone las conclusiones del
+trabajo y las principales líneas de trabajo futuro.
+

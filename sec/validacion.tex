@@ -1,0 +1,1015 @@
+% -*- TeX-master: "../main.tex" -*-
+
+\chapter{Validación}\label{sec:validacion}
+
+
+
+El fin de este capítulo es presentar un conjunto de casos que cumplen
+un doble propósito: {(1)} aportar evidencia de que el intérprete
+implementa correctamente el lenguaje GPLC y {(2)}  ilustrar el
+uso práctico del lenguaje mediante programas pequeños pero
+representativos.  La evidencia obtenida se basa en el contraste entre
+los resultados producidos por el intérprete y el comportamiento
+esperado: en los casos exitosos, las distribuciones retornadas y sus
+valores con ascripción, y en los casos fallidos, los diagnósticos de
+error reportados. Como complemento, al final del capítulo se incluye
+una subsección de limitaciones que sintetiza dificultades observadas
+durante la implementación y que motivan trabajo futuro.
+
+A diferencia de una verificación formal completa, la validación que se
+presenta aquí es funcional y dirigida por casos.  Cada programa está
+diseñado para cubrir una expresión específica (o una interacción
+acotada entre expresiones) y contrastar el comportamiento observado
+con las reglas y decisiones de diseño descritas en capítulos previos.
+Este enfoque resulta adecuado para GPLC, ya que lo que se busca
+contrastar se refleja en hechos directamente observables: la
+aceptación de programas bien formados y la producción de
+distribuciones con valores y tipos coherentes; la propagación de
+probabilidades concretas y desconocidas de acuerdo con las reglas del
+lenguaje; y el rechazo estático o dinámico de programas inválidos
+mediante diagnósticos precisos con localización y explicación de la
+inconsistencia detectada.
+
+Finalmente, estos casos también cumplen un rol ilustrativo, ya que
+muestran patrones de uso propuestos, ejemplos mínimos y casos de borde
+que aclaran qué se acepta, qué se rechaza y por qué. Por ello, el
+capítulo está organizado en torno a familias de expresiones, agrupando
+los programas por la construcción que se desea validar.
+
+
+\section{Metodología}
+
+Para cada caso se documentan tres elementos: {(1)} el código
+fuente GPLC, {(2)} la salida del intérprete (ya sea una
+distribución simbólica o un mensaje de error), y {(3)} una
+explicación breve del aspecto que se está validando. En los casos
+exitosos, la validación se apoya en observar que: {(i)} el
+programa es aceptado por el chequeo estático, {(ii)} la
+distribución retornada contiene los valores esperados, y
+{(iii)} los tipos que figuran en cada valor son los
+correctos. En los casos fallidos, se espera un rechazo estático o
+dinámico según corresponda, y se valida que el intérprete reporte el
+error con un mensaje informativo y una localización adecuada.
+
+Los ejemplos se seleccionan además para cubrir el \emph{carácter
+  gradual} del lenguaje: probabilidades desconocidas \verb|?|, el tipo
+desconocido \verb|?|, y el efecto de estos elementos en consistencia,
+ascripción y construcción de distribuciones. Con esto, el capítulo
+busca evidenciar no solo que el intérprete evalúa programas, sino
+también que preserva las restricciones semánticas y de integridad que
+motivan el diseño de GPLC para escenarios con incertidumbre e
+información parcial.
+
+
+
+\section{Casos}
+
+Los casos se organizan por construcción sintáctica: selección
+probabilística para distribuir probabilidad entre dos ramas,
+\lstinline|let| para definir variables, lambdas para abstracción y
+aplicación, \lstinline|if| para control y ascripción para imponer
+tipos. Cada conjunto de casos reúne programas mínimos que aíslan el
+comportamiento bajo estudio, y luego incorpora ejemplos donde la
+interacción entre componentes graduales (tipos y probabilidades
+desconocidas) es relevante. Cuando corresponde, también se incluyen
+casos de rechazo estático y dinámico para ilustrar las condiciones
+bajo las cuales el intérprete protege la integridad semántica de
+probabilidades y distribuciones.
+
+\subsection{Selección binaria probabilística} El Código
+\ref{lst:choice1} muestra un caso elemental de selección
+probabilística: la selección de un número real con probabilidad
+concreta 0.5. La salida muestra una distribución simbólica donde los
+elementos 1 y 0 están ascritos por el tipo \lstinline|Real|, y
+ponderados por probabilidades simbólicas.
+
+
+\begin{gplcblock}[caption={Selección de números reales},label={lst:choice1}]
+0.5 $ 1 : 0
+
+>>>
+
+{
+	 [Real] 1. :: Real : SymProb19 ,
+	 [Real] 0. :: Real : SymProb20 
+}   
+\end{gplcblock}
+
+
+
+
+El Código \ref{lst:choice2} muestra un caso de selección con ramas
+no homogéneas: valores de tipo \lstinline|Real| y \lstinline|Bool| son
+seleccionados, lo cual constituye una decisión de diseño importante:
+Las ramas no necesitan ser de un mismo tipo. Además la selección es
+hecha con una probabilidad incógnita. La variable simbólica libre
+asociada a dicha probabilidad queda internamente codificada en la
+fórmula de la distribución retornada.
+
+  
+\begin{gplcblock}[caption={Selección de booleano y número},label={lst:choice2}]
+? $ true : 10
+
+>>>
+
+{
+	 [Bool] true :: Bool : SymProb19 ,
+	 [Real] 10. :: Real : SymProb20 
+}  
+\end{gplcblock}
+
+El Código \ref{lst:choice3} muestra un ejemplo de selección anidada,
+es decir, una selección con una rama que, a su vez,
+es una selección. En la salida se observa cómo los
+tres valores conforman el soporte de la distribución
+retornada.
+
+\begin{gplcblock}[caption={Selección anidada},label={lst:choice3}]
+0.4 $ (? $ true : false) : 10
+
+>>>
+
+{
+	 [Bool] true :: Bool : SymProb71 ,
+	 [Bool] false :: Bool : SymProb72 ,
+	 [Real] 10. :: Real : SymProb73 
+}  
+\end{gplcblock}
+
+
+
+En el Código \ref{lst:choice4}, la expresión de selección tiene una
+ascripción de tipo de distribución que verifica estáticamente su
+consistencia con el tipo inferido de la expresión. En la distribución
+ascrita, el tipo \lstinline|Real| concentra el peso total de los
+elementos reales, lo cual comprueba que en la relación de consistencia
+la distribución de los pesos de un tipo no afecta la consistencia
+entre las distribuciones. Por lo tanto, el resultado de un juicio de
+consistencia está determinado estrictamente por relaciones semánticas
+entre los tipos, sin importar la sintaxis específica. Esto es cierto
+en general para todas las relaciones y operaciones entre
+distribuciones.
+
+\begin{gplcblock}[caption={Selección con ascripción},label={lst:choice4}]
+(0.5 $ 1 : (0.4 $ 0 : false)) :: {Real : 0.7 , Bool : 0.3}
+
+>>>
+
+{
+	 [Real] 1. :: Real : SymProb46 ,
+	 [Real] 0. :: Real : SymProb47 ,
+	 [Bool] false :: Bool : SymProb48 
+}  
+\end{gplcblock}
+  
+Con un carácter más gradual, los Códigos \ref{lst:choice5.1},
+\ref{lst:choice5.2} y \ref{lst:choice5.3} muestran la flexibilidad que
+se logra con el tipo desconocido \lstinline|?| y la probabilidad
+desconocida \lstinline|?|.  El Código \ref{lst:choice5.1} muestra
+que el tipo \lstinline|?| --consistente con los tipos \lstinline|Real|
+y \lstinline|Bool|-- puede distribuir su peso entre \lstinline|Real| y
+\lstinline|Bool| para lograr la consistencia con el tipo de la
+expresión. El Código \ref{lst:choice5.2} evidencia que la
+distribución con probabilidades desconocidas es consistente con toda
+expresión cuyo tipo sea una distribución de \lstinline|Real| y
+\lstinline|Bool|, o incluso una distribución con solo uno de esos dos
+tipos, ya que la probabilidad \lstinline|?| es compatible con 0.0, es
+decir, puede representar también la probabilidad de un tipo con peso
+nulo. Finalmente, el Código \ref{lst:choice5.3} demuestra que se
+puede anotar la selección con cualquier distribución de
+\lstinline|Real| y \lstinline|Bool|, dado que la selección con
+probabilidad desconocida es consistente con distribución de pesos en
+tipo de ascripción.
+
+
+\begin{gplcblock}[caption={Distribución con tipo no especificado},label={lst:choice5.1}]
+(0.3 $ true : (-1)) :: {Bool : 0.2, ? : 0.8}
+
+>>>
+
+{
+	 [Bool] true :: Bool : SymProb21 ,
+	 [Bool] true :: ? : SymProb22 ,
+	 [Real] -1. :: ? : SymProb23 
+}  
+\end{gplcblock}
+
+\begin{gplcblock}[caption={Distribución con probabilidades no especificadas},label={lst:choice5.2}]
+(0.3 $ true : (-1)) :: {Real : ?, Bool : ?}
+
+>>>
+
+{
+	 [Bool] true :: Bool : SymProb21 ,
+	 [Real] -1. :: Real : SymProb22 
+}  
+\end{gplcblock}
+
+\begin{gplcblock}[caption={Ascripción de selección con prob. \texttt{?}},label={lst:choice5.3}]
+(? $ true : (-1)) :: {Real : 0.5 , Bool : 0.5}
+
+>>>
+
+{
+	 [Bool] true :: Bool : SymProb21 ,
+	 [Real] -1. :: Real : SymProb22 
+}  
+\end{gplcblock}
+
+
+
+Para demostrar con claridad el funcionamiento efectivo del mecanismo
+estático de tipado, se analizan un par de casos donde la ascripción
+impuesta a la selección gatilla un error estático.
+
+En el Código \ref{lst:choice6}, la ponderación exacta que tiene el
+tipo \lstinline|Bool| en la distribución inducida por la selección, es
+exactamente \lstinline|0.4|. Sin embargo, en la ascripción, el tipo
+`Bool` tiene una ponderación más alta.
+
+
+\begin{gplcblock}[caption={Inconsistencia por prob. de \texttt{Bool}},label={lst:choice6}]
+(0.4 $ false : lambda x:?.x) :: {Bool:0.45 , ?:?}
+
+>>>
+
+Static Error [line 1, cols 1-49]: In distribution ascription, type 0.4 * ({Bool:1}) + 0.6 * ({? -> {?:1}:1}) of term inconsistent with ascription type {Bool:0.45, ?:?}
+\end{gplcblock}
+
+Para terminar, el Código \ref{lst:choice7} falla porque en la
+anotación no hay ningún tipo consistente con el tipo funcional
+\lstinline|Real -> {Real:1}| que represente su peso \lstinline|0.5| en
+el tipo de distribución ascrito.
+
+
+
+
+\begin{gplcblock}[caption={Inconsistencia por falta de tipo funcional},label={lst:choice7}]
+(0.5 $ lambda x:Real.1 : false) :: {Bool : ? , Real : ?}
+
+>>>
+
+Static Error [line 1, cols 1-56]: In distribution ascription, type 0.5 * ({Real -> {Real:1}:1}) + 0.5 * ({Bool:1}) of term inconsistent with ascription type {Bool:?, Real:?}
+\end{gplcblock}
+
+\subsection{Let}
+La semántica de la operación \lstinline|let| consiste en asignar a la
+variable \lstinline|x| cada uno de los elementos contenidos en la
+distribución implícita de la expresión nombrada, y luego establecer
+una distribución de probabilidad que contenga las instancias del
+cuerpo con cada versión de variable \lstinline|x|. La probabilidad de
+cada valor asignado a \lstinline|x|, dentro de la distribución ligada,
+se toma como el peso del cuerpo en la distribución resultante.
+
+En el primer ejemplo (Código \ref{lst:let1}), el programa es semánticamente
+equivalente a la expresión \lstinline|(0.3 $ true : 1)|. La
+distribución de valores retornada muestra la combinación
+probabilística efectiva del cuerpo del \verb|let| (simplemente la variable
+\verb|x|), evaluado en todo el rango de la variable. La variable funciona como en la mayoría de los lenguajes cuando la
+expresión nombrada representa solo un elemento. Por ejemplo, en los casos
+\lstinline|y = false| o \lstinline|id = lambdax:?.x|.
+
+\begin{gplcblock}[caption={Definición de variable local},label={lst:let1}]
+let x = (0.3 $ true : 1) in x
+
+>>>
+
+{
+	 [Bool] true :: Bool : SymProb41 ,
+	 [Real] 1. :: Real : SymProb42 
+}  
+\end{gplcblock}
+
+El mayor potencial del bloque \lstinline|let| consiste naturalmente en
+la operabilidad que le otorga a los elementos de una variable de
+distribución.  En el Código \ref{lst:let2.1}, la variable b es el
+argumento de una operación lógica, y en el Código \ref{lst:let2.2}
+la variable r participa en una operación aritmética. Aunque no sea
+visible en los pesos simbólicos, la variable propaga a la distribución
+resultante el peso probabilístico de los valores individuales
+asignados a ella.
+
+
+\begin{gplcblock}[caption={Uso de variable en operación lógica},label={lst:let2.1}]
+let b = (0.9 $ true : false) in (true or b)
+
+>>>
+
+{
+	 [Bool] true :: Bool : SymProb73 ,
+	 [Bool] true :: Bool : SymProb74 
+}  
+\end{gplcblock}
+
+
+
+\begin{gplcblock}[caption={Uso de variable en operación aritmética},label={lst:let2.2}]
+let r = (? $ 0 : 10) in (7 * r)
+
+>>>
+
+{
+	 [Real] 0. :: Real : SymProb73 ,
+	 [Real] 70. :: Real : SymProb74 
+}  
+\end{gplcblock}
+
+El Código \ref{lst:let3} muestra bloques \lstinline|let| anidados.
+Dada la naturaleza semántica de la expresión \lstinline|let|, la
+expresión final en términos de \lstinline|n| y \lstinline|b| combina
+todos los valores posibles de las variables, cuatro combinaciones en
+total. Además, el programa se verifica con la ascripción de un tipo de
+distribución consistente con la equiprobabilidad de \lstinline|Real| y
+\lstinline|Bool|.
+
+
+
+
+\begin{gplcblock}[caption={Bloques \texttt{let} anidados},label={lst:let3}]
+(let n = (? $ 1 : 7) in
+let b = (0.3 $ true : false) in
+(0.5 $ 21 / n : b and false))  :: {Real:0.5, Bool:0.5}
+
+>>>
+
+{
+	 [Real] 21. :: Real : SymProb403 ,
+	 [Bool] false :: Bool : SymProb404 ,
+	 [Real] 21. :: Real : SymProb405 ,
+	 [Bool] false :: Bool : SymProb406 ,
+	 [Real] 3. :: Real : SymProb407 ,
+	 [Bool] false :: Bool : SymProb408 ,
+	 [Real] 3. :: Real : SymProb409 ,
+	 [Bool] false :: Bool : SymProb410 
+}  
+\end{gplcblock}
+
+El ejemplo del Código~\ref{lst:let4} exhibe elementos importantes de la expresión
+\lstinline|let| en conexión con las expresiones \lstinline|lambda|. Es
+conveniente la asignación de una lambda a una variable, pues
+permite una aplicación mucho menos verbosa y más práctica que la
+aplicación de una lambda literal directamente al argumento. En segundo
+lugar, el programa demuestra la capacidad del bloque \lstinline|let|
+para extraer funciones de una selección.  La ascripción verifica que
+los resultados son exclusivamente de tipo \lstinline|Real|.
+
+
+\begin{gplcblock}[caption={Asignación de lambda a variable},label={lst:let4}]
+(let step_forward = lambdax.x+1 in
+let step_back = lambday.y-1 in
+let f = (? $ step_forward : step_back) in
+(f 0)) :: {Real:1.0}
+
+>>>
+
+{
+	 [Real] 1. :: Real : SymProb145 ,
+	 [Real] -1. :: Real : SymProb146 
+}  
+\end{gplcblock}
+
+En el contexto de los bloques \lstinline|let| y las expresiones
+lambda, es pertinente mencionar que si se usa una variable que no ha
+sido definida con los medios que la sintaxis ofrece, como la
+asignación de una expresión en un bloque \lstinline|let|, o como
+parámetro formal de una expresión lambda, entonces el intérprete
+gatilla un error cuyo mensaje especifica cuál es la variable no
+definida, y la ubicación exacta del código en que fue utilizada.  En
+el Código \ref{lst:invalid-var} se muestra el uso inválido de la
+variable \lstinline|x| en el cuerpo de la expresión lambda.
+
+\begin{gplcblock}[caption={Uso de variable no definida},label={lst:invalid-var}]
+lambda y : Bool . (x + y)
+
+>>>
+
+Static Error [line 1, cols 19-20]: variable x not found
+\end{gplcblock}
+
+
+\subsection{Lambda}
+
+Las expresiones lambda tienen la sintaxis
+\lstinline|lambda<var>:<simple>.<expr>|.  La
+sintaxis\lstinline| lambda<var>.<expr>| es azúcar sintático de
+\lstinline|lambda<var>:?.<expr>|. Si bien el argumento de una función
+debe ser una expresión de tipo simple, es decir, un valor (número,
+booleano, variable, o lambda), el cuerpo de la función puede ser
+cualquier clase de expresión.
+
+En el programa del Código~\ref{lst:lambda1.1}, la función
+\lstinline|seven_untyped| tiene un parámetro formal de tipo
+\lstinline|?|.  Por lo tanto, la función es capaz de recibir un
+argumento con cualquier tipo simple, sin levantar un error estático de
+inconsistencia, porque \lstinline|?| es consistente con todo tipo
+simple. (En el caso particular de esta función, tampoco sería posible
+tener un error dinámico, porque el cuerpo no tiene la variable como
+subexpresión). Los argumentos 1 y true se pasan exitosamente y el
+programa termina.
+
+\begin{gplcblock}[caption={Función no tipada},label={lst:lambda1.1}]
+let seven_untyped = lambdax:?.7 in
+let a1 = (seven_untyped 1) in
+let a2 = (seven_untyped true) in
+a1 * a2 
+
+>>>
+
+{
+	 [Real] 49. :: Real : SymProb85 
+}  
+\end{gplcblock}
+
+En cambio, en el programa del Código~\ref{lst:lambda1.2}, la lambda
+\lstinline|seven_typed| se define con un parámetro de tipo
+\lstinline|Real|, explícitamente declarado. En este segundo ejemplo,
+el tipado gradual rechaza estáticamente la expresión
+\lstinline|(seven_typed false)|, debido a la inconsistencia del tipo
+del argumento (\lstinline|Bool|) con el tipo del parámetro
+(\lstinline|Real|).
+
+Por lo tanto, el sistema gradual prueba en esta implementación tener
+la flexibilidad para recibir argumentos de todo tipo, cuando el tipo
+del parámetro se omite o se declara como \lstinline|?|, y decide en
+tiempo de ejecución la compatibilidad del argumento. Por otro lado, el
+grado de refinamiento del tipo declarado del parámetro puede resultar
+en un rechazo estático del programa.
+
+
+
+
+\begin{gplcblock}[caption={Función explícitamente tipada},label={lst:lambda1.2}]
+let seven_typed = lambdax:Real.7 in
+let b1 = (seven_typed false) in
+let b2 = (seven_typed 0) in
+b1 + b2  
+
+>>>
+
+Static Error [line 2, cols 9-28]: In function, expected argument of type Real, but found Bool
+\end{gplcblock}
+
+
+En el lenguaje GPLC, las funciones son de primera clase, es decir, son
+valores que pueden a su vez pasarse como argumento a otra
+función. En el Código~\ref{lst:lambda2}, se define un aplicador como
+una función que recibe otra función como argumento, y la aplica al
+número \lstinline|5|. Luego, se define \lstinline|sqr| como función a
+ser aplicada. En la expresión principal, el aplicador toma
+\lstinline|sqr| como función argumento y la aplica al \lstinline|5|.
+
+\begin{gplcblock}[caption={Función como argumento de otra función},label={lst:lambda2}]
+let apply = lambda f : Real -> {Real:1} . (f 5) in
+let sqr = lambda r . (r * r) in
+(apply sqr)
+
+>>>
+
+{
+	 [Real] 25. :: Real : SymProb72 
+}  
+
+\end{gplcblock}
+
+
+
+
+
+En el Código~\ref{lst:lambda3} se demuestra cómo una función puede
+operar sobre una variable ligada a los elementos de una distribución
+inducida por una selección probabilística.  En la evaluación del
+programa, el \lstinline|64| es dividido por
+\lstinline|2|,\lstinline|4|, y \lstinline|8|, distribuyendo el peso
+total de una selección numérica (0.8) de acuerdo con el peso de cada valor
+de \lstinline|n|.
+
+\begin{gplcblock}[caption={Función aplicada a identificador de distribución},label={lst:lambda3}]
+let n = 0.5 $ ( ? $ 2 : 4 ) : 8 in
+let f = (lambda x : Real . (0.2 $ false : 64/x)) :: Real -> {Bool:0.2, Real:0.8} in
+(f n)
+
+>>>
+{
+	 [Bool] false :: Bool : SymProb362 ,
+	 [Real] 32. :: Real : SymProb363 ,
+	 [Bool] false :: Bool : SymProb364 ,
+	 [Real] 16. :: Real : SymProb365 ,
+	 [Bool] false :: Bool : SymProb366 ,
+	 [Real] 8. :: Real : SymProb367 
+}  
+\end{gplcblock}
+
+
+
+\subsection{Condicional}
+
+El bloque condicional en este lenguaje tiene
+características similares a las que presenta
+en otros lenguajes: El tipo de la condición
+debe tener un tipo consistente con \lstinline|Bool|, y
+los tipos de las ramas deben ser iguales, a
+diferencia de la heterogeneidad que pueden tener
+las ramas de la selección binaria probabilística.
+En el programa del Código~\ref{lst:if1}, la condición \lstinline|false| retorna \lstinline|-1|,
+y ambas ramas tienen el mismo tipo.
+
+
+\begin{gplcblock}[caption={Condicional},label={lst:if1}]
+if false then 1 else (-1)
+
+>>>
+
+{
+	 [Real] -1. :: Real : SymProb11 
+}  
+\end{gplcblock}
+
+En cambio, el programa \ref{lst:if2} es rechazado
+estáticamente debido a que las ramas de
+ejecución tienen tipos diferentes.
+
+
+\begin{gplcblock}[caption={Condicional fallido},label={lst:if2}]
+if true then 1 else true
+
+>>>
+
+Static Error [line 1, cols 0-20]: In (if), branches have unequal types {Real:1} and {Bool:1}
+\end{gplcblock}
+
+
+Los Códigos \ref{lst:if3} y \ref{lst:if4} comprueban que en
+tiempo de ejecución no se ejecutan ambas ramas.
+En el programa \ref{lst:if3}, se retorna exitosamente la
+rama \lstinline|true|. En la rama false, el argumento de \lstinline|f|
+pasa el chequeo estático de consistencia, porque
+\lstinline|Bool| es consistente con el tipo \lstinline|?| del parámetro
+formal. Sin embargo, en el programa \ref{lst:if4}, la rama
+false se ejecuta, y en tiempo de ejecución, el
+programa es rechazado dinámicamente.
+
+\begin{gplcblock}[caption={Evaluación de rama sin error},label={lst:if3}]
+let double = lambda x : ? . (x + x) in
+if true then (double 1) else (double true) 
+
+>>>
+
+{
+	 [Real] 2. :: Real : SymProb59 
+}  
+\end{gplcblock}
+
+
+\begin{gplcblock}[caption={Evaluación de rama con error},label={lst:if4}]
+let double = lambda x : ? . (x + x) in
+if false then (double 1) else (double true)
+
+>>>
+
+Run-Time Error [line 1, cols 25-26]: expected value Real; found Bool
+\end{gplcblock}
+
+El código \ref{lst:if5} demuestra dos aspectos relevantes del lenguaje y
+su implementación. En primer lugar, la condición del bloque
+\lstinline|if| puede ser una variable que recorre los elementos de una
+distribución. En segundo lugar, el ejemplo muestra una forma efectiva
+de implementar una selección binaria que fuerza la homogeneidad de las
+ramas. En general,
+\lstinline|let cond = (p $ true : false) in (if cond then m else n)| retorna una distribución con un solo tipo (distribuido en distintos valores).
+
+
+\begin{gplcblock}[caption={Condición variable},label={lst:if5}]
+let condition = (0.7 $ true : false) in
+if condition then 100 else 200
+
+>>>
+
+{
+	 [Real] 100. :: Real : SymProb59 ,
+	 [Real] 200. :: Real : SymProb60 
+}  
+\end{gplcblock}
+
+
+  
+
+  
+\subsection{Ascripción simple}
+La operación de ascripción con un tipo simple tiene las siguientes
+funciones: (1) Verificar estáticamente la consistencia del tipo
+inferido de la subexpresión con el tipo ascrito, y (2) Realizar una
+conversión del tipo de la subexpresión al tipo ascrito, ya que
+estáticamente, el tipo de la expresión \lstinline|<expr>::<type>| es
+el tipo simple ascrito.
+
+
+El programa \ref{lst:ascr1} termina exitosamente y retorna una
+distribución de Dirac, es decir, una distribución cuyo soporte
+contiene un único valor con probabilidad 1. Por otro lado el programa
+\ref{lst:ascr2} falla estáticamente, porque la expresión tiene tipo
+\lstinline|Bool|, inconsistente con \lstinline|Real|. Finalmente, en
+el programa \ref{lst:ascr3}, el valor \lstinline|true|, ascrito con
+\lstinline|?| se asigna a la variable \lstinline|unknown|.  Esta
+ascripción funciona efectivamente como una conversión de tipo, que deja la variable
+con el tipo \lstinline|?|.  Por esta razón, el chequeo estático
+\lstinline|unknown :: Real| no falla, porque \lstinline|?| es
+consistente con \lstinline|Real|.  Sin embargo, cuando se realiza el
+chequeo dinámico de la ascripción en tiempo de ejecución, la
+ascripción falla debido a la incompatibilidad del valor con el tipo
+Real.
+
+\begin{gplcblock}[caption={Ascripción de tipo \texttt{Real}},label={lst:ascr1}]
+1 :: Real
+
+>>>
+
+{
+	 [Real] 1. :: Real : SymProb1 
+}  
+
+\end{gplcblock}
+
+
+\begin{gplcblock}[caption={Ascripción fallida},label={lst:ascr2}]
+true :: Real
+
+>>>
+
+Static Error [line 1, cols 0-12]: In simple ascription, type Bool of term inconsistent with ascription type Real
+\end{gplcblock}
+
+\begin{gplcblock}[caption={Ascripción rechazada dinámicamente},label={lst:ascr3}]
+let unknown = (true :: ?) in
+(unknown :: Real)
+
+>>>
+
+Run-Time Error [line 2, cols 1-8]: expected value Real; found Bool
+\end{gplcblock}
+
+
+En los Códigos \ref{lst:ascr4} y \ref{lst:ascr5} se demuestra
+de otra forma el poder de la ascripción para
+modificar el tipo de una expresión. En el Código
+\ref{lst:ascr4}, el tipo del parámetro es \lstinline|?|. Dada la
+consistencia del tipo \lstinline|Bool| con \lstinline|?|, \lstinline|(id false)|
+se ejecuta sin problemas. Sin embargo, en el
+Código \ref{lst:ascr5},
+el tipo de \lstinline|id| se \emph{refina} ascribiendo el tipo
+de función \lstinline|Real -> {?:?}|, con dominio \lstinline|Real|.
+La aplicación \lstinline|(real_id false)| falla estáticamente
+por la inconsistencia del argumento con \lstinline|Real|,
+demostrando el refinamiento del tipo esperado
+para el argumento.
+
+
+\begin{gplcblock}[caption={Lambda con parámetro sin tipo},label={lst:ascr4}]
+let id = lambda x : ? . x in
+(id false) 
+
+>>>
+
+{
+	 [Bool] false :: ? : SymProb31 
+}  
+\end{gplcblock}
+
+
+
+
+
+\begin{gplcblock}[caption={Lambda con parámetro de tipo refinado a \texttt{Real}},label={lst:ascr5}]
+let id = lambda x : ? . x in
+let real_id = id :: Real -> {?:?} in
+(real_id false)
+
+>>>
+
+Static Error [line 3, cols 0-15]: In function, expected argument of type Real, but found Bool
+\end{gplcblock}
+
+
+
+
+\subsection{Integridad semántica probabilística}
+
+El intérprete tiene la capacidad para juzgar semánticamente:
+{(1)} bien o mal formuladas las probabilidades graduales usadas
+en la selección probabilística y en la construcción de tipos de
+distribución, y {(2)} bien o mal construidas las distribuciones
+de tipos usadas en la ascripción.
+
+En el caso de las probabilidades graduales, la probabilidad no
+especificada \lstinline|?| es siempre correctamente utilizada. La
+probabilidad numérica, en cambio, debe ser un número real en el intervalo $[0,1]$. En el Código \ref{lst:perr1}, la selección es rechazada estáticamente
+debido al valor de la probabilidad.
+
+\begin{gplcblock}[caption={Probabilidad inválida},label={lst:perr1}]
+1.1 $ true : false
+
+>>>
+
+Static Error [line 1, cols 0-3]: Expected probability in [0,1] but found 1.1
+\end{gplcblock}
+
+
+En el caso de las distribuciones, la regla con respecto a la
+integridad de las probabilidades tiene 3 casos: {(1)} Si la
+distribución solo contiene probabilidades numéricas, estas deben sumar
+exactamente 1.0. {(2)} Si solo hay probabilidades desconocidas,
+la distribución es correcta. {(3)} Si la distribución combina
+probabilidades numéricas y no especificadas, entonces la suma de las
+probabilidades numéricas debe ser un número en el intervalo $[0,1]$.
+La distribución del Código \ref{lst:perr2} es rechazada
+estáticamente porque sus probabilidades numéricas suman más de 1.0.
+La distribución del Código \ref{lst:perr3} falla con el mismo mensaje, pero esta vez debido a que sus probabilidades
+numéricas suman menos de 1.0, y no hay ninguna probabilidad \lstinline|?| que pueda complementar la probabilidad restante.
+
+\begin{gplcblock}[caption={Distribución con exceso de probabilidad},label={lst:perr2}]
+(? $ true : 23) :: {Bool:0.5, Real:0.6, Real : ?}
+
+>>>
+Static Error [line 1, cols 19-49]: Invalid distribution type. The sum of probabilities must be 1.0.
+If the sum of numeric probabilities is in [0, 1), the distribution must contain at least one probability '?' to complete it.
+\end{gplcblock}
+
+\begin{gplcblock}[caption={Distribución sin probabilidades suficientes},label={lst:perr3}]
+(? $ true : 23) :: {Bool:0.4, Real:0.4}
+\end{gplcblock}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Limitaciones}
+
+Esta sección tiene como objetivo presentar, de manera crítica, las
+principales limitaciones identificadas durante el desarrollo del
+intérprete de GPLC. En este trabajo, el intérprete se concibió como un
+prototipo de investigación: su foco principal es materializar la
+semántica del lenguaje, permitir la ejecución de programas y servir
+como plataforma para experimentar con la gradualidad tanto en tipos
+como en probabilidades. En consecuencia, existen aspectos del sistema
+que se privilegiaron (corrección semántica y fidelidad a la
+formulación teórica) por sobre otros (optimización o escalabilidad a
+programas de mayor tamaño).
+
+
+En las siguientes subsecciones, se organizan las limitaciones en
+categorías que reflejan el tipo de dificultad observada: {(i)}
+imprecisiones semánticas, {(ii)} evaluación de probabilidades
+simbólicas en el resultado, {(iii)} eficiencia de la resolución de
+fórmulas, {(iv)} rediseño de tipado para operaciones binarias,
+{(v)} ausencia de mecanismos de igualdad para testing
+semántico, y {(vi)} costos computacionales asociados a
+\lstinline|Let| y \lstinline|Dascr| en el AST destino.
+
+
+\subsection{Imprecisiones semánticas}
+
+Durante la implementación y la experimentación con la ejecución de
+programas se identificaron resultados o comportamientos no
+esperados. Entre las causas, se encuentran errores o imprecisiones en
+la especificación formal del lenguaje. Algunos de estos errores han
+sido corregidos en una versión enviada a revisión para una nueva
+versión de revista del trabajo de \citet{gplc}. Sin embargo, hay
+aspectos que aún no han sido corregidos, y que, por lo tanto, se ven
+reflejados en la implementación, que sigue dicha formulación de manera
+literal.
+
+Un ejemplo ilustrativo es el siguiente programa del Código
+\ref{lst:bug}, donde se observa que la distribución final contiene
+valores que no coinciden con la intuición acerca de la
+ejecución. En el resultado, dos valores son compatibles con la
+interpretación intuitiva: \lstinline|[Bool]true :: ?| y
+\lstinline|[Real]13 :: Real|.  Sin embargo, aparecen además:
+{(1)} un error dinámico \lstinline|ERROR(?)|, que indica que una
+ascripción con tipo desconocido no pudo validarse en tiempo de
+ejecución, y {(2)} un valor \lstinline|[Real]13 :: ?| que
+indica que, en algún punto del pipeline, el valor $13$ fue ascrito con
+tipo desconocido, a pesar de que en el Código \ref{lst:bug} no hay
+ningún elemento sintáctico que haga la ascripción \lstinline|:: ?|
+necesaria o esperable.
+
+\begin{gplcblock}[caption={Distribución con valores no esperados},label={lst:bug}]
+? $ (true :: ?) : 13
+
+>>>
+
+{
+  [Bool] true :: ? : SymProb19 ,
+  ERROR(?): SymProb20 ,
+  [Real] 13. :: ? : SymProb21 ,
+  [Real] 13. :: Real : SymProb22
+}
+\end{gplcblock}
+
+La evidencia hallada durante el desarrollo indica que este tipo de
+fenómeno se sitúa en la evaluación de la ascripción de distribución en
+el AST destino. Dicha expresión tiene la estructura
+\lstinline|Dascr(e,m,nu)|, donde \lstinline|e| es la evidencia,
+\lstinline|m| es la subexpresión, y \lstinline|nu| es el tipo
+ascrito. Primero se evalúa \verb|m| a una distribución de valores
+\verb|V|, y luego se asigna a cada valor \verb|V| una evidencia y un
+tipo de \verb|nu| para chequear consistencia en tiempo de
+ejecución. En el proceso de asignar a cada valor de \verb|V| una
+evidencia y un tipo de \lstinline|nu|, hay asignaciones que no se
+hacen correctamente.  Esto ocurre porque la regla de evaluación no está manejando bien
+la tolerancia que tiene el tipo \lstinline|?| a asociarse con valores
+con los cuales es consistente (\lstinline|?| es \emph{consistente} con \lstinline|13|), pero a los cuales no fue ascrito en el
+programa. El error no se repite en el Código \ref{lst:good-ascr},
+con anotaciones de tipos concretos.
+
+\begin{gplcblock}[caption={Ascripción correctamente evaluada.},label={lst:good-ascr}]
+? $ (true :: Bool) : (13 :: Real)
+
+>>>
+{
+	 [Bool] true :: Bool : SymProb19 ,
+	 [Real] 13. :: Real : SymProb20 
+}  
+\end{gplcblock}
+
+\subsection{Evaluación de probabilidades simbólicas}\label{subsec:lim-prob-simbolicas}
+
+Actualmente, el intérprete retorna distribuciones simbólicas de
+valores en las cuales las probabilidades están representadas por
+variables simbólicas. Sin embargo, la fórmula asociada a la
+distribución, que restringe los valores reales simultáneos que estas
+variables pueden tomar, no se muestra en la salida.  Si bien las
+funcionalidades que realizan la impresión de fórmulas están
+implementadas en el código, el volumen de información contenido en una
+fórmula correspondiente a un programa no trivial, suele ser demasiado
+grande para entregar una información interpretable por el usuario, y
+por esta razón se omite en la salida.  En consecuencia, el resultado
+observado por el usuario corresponde esencialmente a un listado de
+valores asociados a pesos variables, pero no a las restricciones
+que hacen que el sistema sea soluble y semánticamente válido.
+
+Esta decisión de diseño resulta útil en el contexto experimental del
+prototipo, pues permite observar con claridad los valores que
+contiene el soporte de una distribución, y verificar que un programa
+termina exitosamente. No obstante, incluso en este contexto, resulta
+valioso contar con mecanismos que expresen el resultado de manera
+numérica, instanciando las probabilidades simbólicas cuando el usuario
+lo requiera.
+
+
+\subsection{Resolución incremental de fórmulas}\label{subsec:lim-incremental}
+
+En el intérprete, la satisfacibilidad de fórmulas se utiliza de forma
+transversal: es un paso esencial para determinar consistencia,
+precisión, el meet de tipos de distribución, y para validar
+restricciones heredadas o acumuladas en tiempo de ejecución. En la
+implementación actual, la función \lstinline|solve| que conecta el
+intérprete con el solucionador Z3 se comporta como una \textit{caja
+  negra} que recibe fórmulas y retorna únicamente un valor booleano
+(true si existe solución, false si no). Este diseño favorece una
+integración simple del solucionador dentro del prototipo, pero impide
+reutilizar trabajo entre chequeos sucesivos: cada invocación construye
+un contexto nuevo del solucionador, vuelve a traducir la fórmula completa a
+expresiones nativas de Z3 y a resolverla, encareciendo el cómputo
+cuando estas verificaciones se repiten frecuentemente durante la
+evaluación, lo cual ocurre generalmente.
+
+Esta limitación se vuelve especialmente relevante en operaciones entre
+distribuciones (por ejemplo, durante un \lstinline|meet|), donde la
+fórmula a resolver se construye por acumulación de restricciones pues
+se incluyen las fórmulas de las distribuciones argumento y se agregan
+nuevas variables y ecuaciones asociadas al coupling. En este
+escenario, aunque las subfórmulas heredadas puedan asumirse
+satisfacibles (un invariante garantizado por el flujo del intérprete),
+una solución para una subfórmula no necesariamente se extiende a una
+solución del sistema global, porque la operación introduce
+restricciones adicionales.
+
+
+\subsection{Tipado de operaciones binarias}\label{subsec:lim-binops}
+
+En la formulación implementada, las operaciones binarias aritméticas y
+booleanas exigen que sus operandos sean consistentes con
+\lstinline|Real| o \lstinline|Bool|, respectivamente. Una vez
+satisfecha esta condición, el tipo de la operación se interpreta como
+una distribución de Dirac sobre el tipo correspondiente (intuitivamente,
+una distribución cuyo soporte contiene un único tipo con probabilidad
+1). Este diseño es coherente con la idea de que toda expresión denota
+una distribución. Sin embargo, genera una tensión en el sistema:
+existen construcciones en el lenguaje (como aplicación de abstracción,
+ascripción simple, operaciones binarias, y condiciones de un
+\lstinline|if|) que esperan un término de tipo simple (un valor), no
+un término cuyo tipo inferido sea una distribución (aunque sea de Dirac).
+
+
+Como consecuencia, expresiones como \lstinline|(1+1)+7|,
+\lstinline|(f (1 + 1))| o \lstinline|(1 + 1) :: Real| evidencian una
+ambigüedad conceptual: la subexpresión \lstinline|(1 + 1)| puede verse
+como un valor simple \lstinline|Real| o como una distribución
+\lstinline|{Real:1}|. En el prototipo, esta tensión no se resolvió
+mediante un rediseño del sistema de tipos, ya que el foco principal
+del trabajo fue implementar la gradualidad en tipos de distribución y
+en probabilidades desconocidas.
+
+
+\subsection{Equivalencia semántica y testing}\label{subsec:lim-igualdad}
+
+Una limitación importante para la validación sistemática es la
+ausencia de un operador o mecanismo interno para comprobar igualdad
+entre dos expresiones (o entre dos distribuciones resultantes). Sin
+una noción de igualdad, resulta difícil automatizar tests que comparen
+un resultado esperado con el que produce una expresión. Una
+funcionalidad de este tipo tendría especial importancia para verificar
+equivalencia semántica entre expresiones del lenguaje fuente,
+comparando las distribuciones de valores que generan. Por ejemplo,
+sería deseable poder contrastar directamente los programas:
+\begin{itemize}
+\item \lstinline|let x = (0.5 $ 1 : true) in 0.5 $ 1 : x| 
+\item \lstinline|0.75 $ 1 : true|.
+\end{itemize}
+
+
+En el estado actual, lo más cercano a una comparación consiste en
+ascribir manualmente un tipo de distribución esperado y verificar que
+el programa termina sin error (Código \ref{lst:pseudo-comparison}), lo
+que es una condición necesaria pero no suficiente para equivalencia
+semántica.
+
+\begin{gplcblock}[caption={Verificación de tipo de distribución},label={lst:pseudo-comparison}]
+(let x = (0.5 $ 1 : true) in  0.5 $ 1 : x ) :: {Real : 0.75, Bool : 0.25}
+
+>>>
+
+{
+	 [Real] 1. :: Real : SymProb95 ,
+	 [Real] 1. :: Real : SymProb96 ,
+	 [Real] 1. :: Real : SymProb97 ,
+	 [Bool] true :: Bool : SymProb98 
+}  
+\end{gplcblock}
+
+
+
+\subsection{Ineficiencia de \lstinline|Dascr| y \lstinline|Let|}\label{subsec:lim-eficiencia}
+
+La evaluación de \lstinline|Let| y
+\lstinline|Dascr| es un proceso computacionalmente
+costoso.  Esto se debe a dos razones
+estructurales. Primero, ambos constructos aparecen
+con alta frecuencia en el AST destino: La
+elaboración reestructura varios términos fuente
+en \verb|Let|, y inserta ascripciones de distribución.  Segundo, su evaluación ejecuta
+operaciones entre distribuciones de tipo que, en
+el peor caso, crecen combinatoriamente: si dos
+distribuciones de tipo con tamaños $m$
+y $n$, se combinan mediante una operación como
+meet, la distribución resultante puede
+alcanzar tamaño $m \times n$ antes de descartar
+combinaciones de tipos simples inválidas.
+
+La implementación de las operaciones entre
+distribuciones de tipos se basa en la construcción
+de un coupling simbólico (una matriz de variables
+frescas, con dimensión $m\times n$) cuyas variables
+se usan para construir y resolver el sistema de
+restricciones que valida la operación (ver sección
+\ref{par:symbolic}). Dicho sistema, en conjunción
+con las fórmulas heredadas de las distribuciones
+sobre las que se opera, pasa a ser la fórmula de la
+distribución resultante.  Este enfoque es
+directo y cuida la claridad y fidelidad a la
+definición, pero es muy costoso en tiempo y
+memoria cuando se repite de manera profunda y
+recurrente en la recursión estructural de la
+evaluación sobre el AST destino.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\section{Resumen}
+
+En conjunto, los casos presentados entregan evidencia práctica de que
+el intérprete se comporta de manera consistente frente a los
+escenarios estudiados: acepta programas bien formados y produce
+resultados con la estructura esperada (distribuciones, sus valores y
+las ascripciones asociadas), y rechaza programas inválidos cuando se
+violan restricciones del lenguaje, reportando diagnósticos precisos
+que incluyen localización y explicación de la inconsistencia
+detectada. Además, los últimos ejemplos muestran que las reglas
+semánticas sobre probabilidades válidas y distribuciones bien
+construidas son efectivamente forzadas por el sistema.
+
+Si bien esta validación no pretende ser exhaustiva, sí es sistemática
+en el sentido de cubrir cada construcción central del lenguaje y una
+colección de escenarios representativos y de borde. Por lo tanto, el
+capítulo funciona tanto como una validación funcional del intérprete
+como una guía concreta de uso del lenguaje GPLC, conectando
+directamente las decisiones de diseño y las reglas semánticas con el
+comportamiento observable de la implementación.
+
+Finalmente, la subsección de Limitaciones sistematiza dificultades y
+aspectos pendientes identificados durante el desarrollo del prototipo
+(por ejemplo, imprecisiones semánticas puntuales, carácter poco
+informativo de un resultado exclusivamente simbólico y costos asociados
+al uso del solucionador). Estas observaciones acotan el alcance de la
+validación y motivan las líneas de trabajo futuro sugeridas en el
+capítulo final.

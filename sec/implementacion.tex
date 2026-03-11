@@ -1,0 +1,799 @@
+% -*- TeX-master: "../main.tex" -*-
+
+
+\chapter{Implementación}
+\label{sec:implementacion}
+El enfoque de este capítulo es presentar la implementación de las principales estructuras que dan soporte a las operaciones del intérprete, y las rutinas esenciales que operan sobre ellas. Entre las estructuras de datos, se cubren los tokenes de código fuente, ambos AST (fuente y destino), los tipos graduales, los tipos de fórmula y la infraestructura simbólica como parte integral de ellos, y los valores que el sistema retorna. Las principales rutinas que se tratan son parsing de código fuente, operaciones de tipo, resolución de fórmulas, chequeo estático de ambos AST, elaboración,  y evaluación.
+
+\section{Estructuras de datos}
+
+
+En esta sección se presentan las principales estructuras de datos del
+intérprete a través de sus implementaciones en OCaml. Los
+fragmentos de código que se muestran corresponden a definiciones
+reales de tipos dentro de los módulos del sistema. Usualmente se
+denota con \verb|t| el tipo principal definido por un módulo. La
+palabra clave \verb|and| se utiliza para realizar definiciones
+mutuamente inductivas. El uso de \verb|of| en un constructor indica el
+tipo de los valores que recibe, y \verb|*| se utiliza para formar
+productos (tuplas) de tipos. Finalmente, \lstinline{|} separa los
+distintos constructores de un tipo. A continuación, se introducen las
+implementaciones de los tipos graduales, ambos AST, los tipos de
+fórmula, la infraestructura simbólica asociada y los valores del
+lenguaje.
+
+\subsection{Tipos graduales}
+
+La probabilidad gradual en el lenguaje fuente es un componente de la expresión de selección y de los tipos de distribución. No es un tipo en sí mismo, pero por ser parte integral de los tipos graduales, se implementa en el módulo \verb|Source.Type| como el tipo de dato  algebraico \verb|gprob|, que contempla constructores para la probabilidad concreta y la desconocida. En la sintaxis de OCaml, el constructor de la probabilidad concreta \verb|Preal| toma un número de punto flotante (la probabilidad) y un entero (un id). El constructor de la probabilidad desconocida \verb|Pany| toma solo un entero, que también representa un id, y es de particular importancia para convertir una probabilidad \verb|?| a una única probabilidad simbólica en distintas instancias de transformación.
+
+Los tipos graduales simples y de distribución están implementados como dos tipos de datos algebraicos mutuamente inductivos: el constructor funcional del tipo simple, \verb|Fun|, toma como argumento el par \verb|(simple, distr)|, y el constructor básico de distr, \verb|Distr|, toma como argumento una lista de pares \verb|(simple, gprob)|.  El resto de los constructores del tipo simple son
+\verb|Real|, \verb|Bool| y \verb|Any|, este último representando al tipo desconocido \verb|?|. Los demás constructores del tipo de distribución son \verb|Scale| y
+\verb|Sum|, los cuales escalan una distribución por una probabilidad gradual, y suman una lista de distribuciones, respectivamente.
+
+\begin{ocamlblock}[caption={Probabilidad Gradual y Tipos Graduales},label={asdf}]
+type gprob  = (* probabilidad gradual *)
+| Preal of float * int (* Uso: Preal(probabilidad: float, id: int)*)
+| Pany of int 
+
+type simple = (* tipos graduales simples *)
+| Real | Bool
+| Any  | Fun of simple * distr
+
+and distr = (* tipos graduales de distribución *)
+| Distr of (simple * gprob) list (* Uso: Distr [(t1,p1); ... ; (tn,pn)] *) 
+| Scale of gprob * distr 
+| Sum   of distr list
+\end{ocamlblock}
+
+
+\subsection{AST fuente}
+
+El AST del lenguaje fuente está implementado en el
+módulo \verb|Source.Term| como un tipo de datos algebraico inductivo. Este es un
+tipo parametrizado por dos variables de tipo \verb|'st| y \verb|'dt|. Sus
+constructores modelan la sintaxis abstracta del lenguaje fuente. Cada
+constructor a su vez recibe como último argumento un valor de otro tipo
+paramétrico: la anotación \verb|'t annot|, en la cual se inserta el tipo del
+nodo, una vez inferido por el chequeo estático.
+
+El fundamento de parametrizar el tipo \verb|ast| con dos variables de tipo es lograr utilizar
+esta misma estructura para modelar los AST no tipados y tipados: Si se parametriza
+ast con el par de tipos (\verb|(unit,unit)|), entonces la anotación hereda el tipo \verb|unit|
+y el espacio reservado para el tipo del nodo se llena con el único valor de este tipo, es decir, \verb|()|.
+En cambio si el tipo \verb|ast| se parametriza con el par \verb|(simple,distr)|, cada anotación recibirá
+uno de estos dos tipos. Cuál de los dos tipos asignar a una anotación determinada es una decisión
+que está codificada en la definición del \verb|ast|. Por ejemplo, la anotación de la expresión \verb|Num|
+es del tipo \verb|'st annot|, lo cual significa que recibirá un tipo simple. En cambio,
+la anotación de la expresión \verb|Choice| tiene tipo \verb|'dt annot|, indicando que recibirá un
+ tipo de distribución. Este diseño apunta a resolver la tensión entre un AST no tipado y uno tipado,
+y entre la asignación de distintas categorías de tipo a nodos de un mismo AST.
+
+\begin{ocamlblock}[caption={AST lenguaje fuente},label={lst:lst:src-ast}]
+type ('st, 'dt) ast =
+| Num       of float * 'st annot
+| Bool      of bool * 'st annot 
+| Var       of string * 'st annot
+| Fun       of string * Type.simple * ('st,'dt) ast * 'st annot
+| Sascr     of ('st,'dt) ast * Type.simple * 'st annot
+| Dascr     of ('st,'dt) ast * Type.distr * 'dt annot
+| Let       of string * ('st,'dt) ast * ('st,'dt) ast list * 'dt annot 
+| If        of ('st,'dt) ast * ('st,'dt) ast * ('st,'dt) ast * 'dt annot
+| App       of ('st,'dt) ast * ('st,'dt) ast * 'dt annot 
+| Choice    of Type.gprob * ('st,'dt) ast * ('st,'dt) ast * 'dt annot 
+| NumBinOp  of ('st,'dt) ast * ('st,'dt) ast *  Bin.num_op * 'st annot 
+| BoolBinOp of ('st,'dt) ast * ('st,'dt) ast * Bin.bool_op * 'st annot 
+
+type untyped_term = (unit,unit) ast
+type typed_term   = (simple,distr) ast\end{ocamlblock}
+
+\subsection{Fórmulas}
+Las fórmulas son sistemas de ecuaciones e inecuaciones, posiblemente no
+lineales, cuyas variables corresponden a probabilidades simbólicas de
+distribuciones de fórmula.
+
+En la base del concepto de fórmula, está la
+probabilidad simbólica, implementada como un constructor \verb|SymProb| que toma
+4 argumentos: un primer argumento string, que es la variable de la probabilidad
+simbólica propiamente tal, un segundo argumento de tipo entero, que indica la
+posición de la probabilidad dentro de la distribución, y finalmente dos
+argumentos más de tipo entero, que almacenan, según sea el origen de la
+distribución, información acerca de la posición dentro de la distribución o
+información de las posiciones de los tipos simples que dieron origen a la
+probabilidad en la distribución producto.
+
+El tipo de dato algebraico que modela las expresiones que se comparan en las
+fórmulas se implementa en \verb|Formula.Expr|. Los constructores \verb|Real| y
+\verb|Symb| elaboran los casos base de esta álgebra. El primero toma un número real, y el segundo una probabilidad
+simbólica. En particular, el
+constructor \verb|Symb| transforma una probabilidad simbólica en una expresión
+simbólica. \verb|Add|, \verb|Sub|, \verb|Mul| y \verb|Div| son las operaciones
+reales binarias básicas. \verb|Sum| y \verb|Prod| suman y multiplican listas de
+expresiones, respectivamente.
+
+El tipo de datos \verb|Formula.Form.t| es el que representa a las fórmulas como
+restricciones, y como conjunciones entre estas mismas.  Los constructores
+\verb|Integrity|, \verb|Distribution| y \verb|Null| aplican a una expresión,
+restricciones importantes, y por eso reciben nombres significativos. Los
+constructores \verb|Eq|, \verb|Lt| y \verb|Le| comparan dos expresiones con
+las relaciones $=$, $<$ y $\leq$. Finalmente, el operador de conjunción
+\verb|And| le da su carácter inductivo al tipo de fórmula, representando una
+conjunción sobre una lista de fórmulas.
+
+
+
+\begin{ocamlblock}[caption={Fórmulas y sus componentes},label={lst:formula}]
+  (* probabilidad simbólica (módulo: Sprob) *)
+  type t = SymProb of string * int * int * int (* Uso: TagVar("X",5,1,4) *)
+
+  (* expresión simbólica (módulo: Expr) *)
+  type t =
+  | Real  of float  | Symb  of Sprob.t
+  | Add   of t * t  | Sub   of t * t
+  | Mul   of t * t  | Div   of t * t
+  | Sum   of t list | Prod  of t list
+
+  (* fórmula (módulo: Form) *)
+  type t = 
+  | Integrity    of Expr.t (* expresión en [0,1] *)
+  | Distribution of Expr.t (* expresión = 1.0 *)
+  | Null         of Expr.t (* expresión = 0.0*)
+  | Eq           of Expr.t * Expr.t (* expr1 = expr2 *)
+  | Lt           of Expr.t * Expr.t (* expr1 < expr2 *)
+  | Le           of Expr.t * Expr.t (* expr1 <= expr2 *)
+  | And          of t list (* And[f1;...;fn] *)
+\end{ocamlblock}
+
+
+
+
+
+\subsection{Distribución paramétrica y tipos de fórmula}
+En el módulo \verb|Formula.Distribution| se implementa el tipo
+paramétrico de distribución \verb|dis|. Este tipo materializa la idea
+de la distribución de fórmula como un tipo polimórfico consistente en
+un par \emph{(distribución, fórmula)}, donde la distribución es una
+lista de pares de tipo \verb|(t', Sprob.t)|, es decir, valores de tipo
+\verb|t'| asociados a una probabilidad simbólica. La fórmula asociada
+a la distribución impone restricciones a los valores posibles de las
+probabilidades de tipo \verb|Sprob.t|. El tipo \verb|'t| representa el
+\emph{dominio} de la distribución.
+
+La implementación de los tipos de fórmula es similar a la de los tipos
+graduales. Los tipos simples y de distribución son también definidos de manera
+mutuamente inductiva. Los tipos simples, producidos por los constructores
+\verb|Real|, \verb|Bool|, \verb|Any| y \verb|Fun(simple,distr)| son análogos a
+aquellos en los tipos graduales. La diferencia fundamental radica en los tipos de
+distribución: estos se definen como el tipo \verb|dis|, parametrizado por el
+tipo \verb|simple|. De esta manera, el tipo \verb|distr| es efectivamente
+definido como una distribución simbólica de tipos simples. 
+
+\begin{ocamlblock}[caption={Distribución Paramétrica y Tipos de Fórmula}, label={lst:ftype}]
+  (* tipo polimórfico de distribución (módulo: Distribution) *)
+  type 't dis = (('t * Sprob.t) list) * Form.t
+
+  (* tipos de fórmula simples *)
+  type simple = 
+  | Real
+  | Bool
+  | Any 
+  | Fun of simple * distr
+
+  (* tipos de fórmula de distribución *)
+  and distr = simple Distribution.dis
+\end{ocamlblock}
+
+
+\subsection{AST destino}
+El AST destino, implementado en \verb|Target.Term|, es muy semejante al AST del
+lenguaje fuente, dado que también se define de manera paramétrica para
+adaptarse a los requerimientos previos y posteriores al chequeo estático del
+lenguaje destino. El componente de tipo \verb|'t annot| es el mismo tipo usado
+en los nodos del AST fuente, dado que el parámetro \verb|'t| puede ser
+cualquier tipo (simple o distribución, gradual o de fórmula). Esto facilita
+además la propagación de información posicional desde el lenguaje fuente al
+destino, ya que los metadatos dentro de la anotación son trasladados por defecto
+a su nodo destino durante la elaboración.
+
+En el Código~\ref{lst:trgt-ast} se muestra un extracto de la
+definición de los nodos del AST destino, incluyendo solo aquellos
+que se diferencian de sus nodos correspondientes en el lenguaje
+fuente.  Los constructores \verb|Sascr| y \verb|Dascr|, que producen
+las expresiones de ascripción simple y de distribución,
+respectivamente, ahora reciben un primer argumento adicional, que
+constituye la evidencia de la ascripción. El constructor de
+\verb|Choice|, a diferencia de su versión fuente, recibe dos
+probabilidades simbólicas: la de selección de la primera rama, y su
+complemento. El tipo \verb|fprob| es en realidad un tipo definido
+como \verb|type fprob = Sprob.t * Form.t|, es decir, una probabilidad
+simbólica $x$ asociada a una fórmula $x=r$ o $0\leq x \leq 1$.
+
+
+Análogo a lo hecho en el lenguaje fuente, los tipos de expresión no tipada y
+tipada se definen parametrizando el AST polimórfico con los pares de tipos
+\verb|(unit,unit)| y \verb|(simple,distr)|, respectivamente.
+
+\begin{ocamlblock}[caption={AST destino (extracto)}, label={lst:trgt-ast}]
+  type ('s,'d) t =
+  ...
+| Sascr        of fsimple * ('s,'d) t * fsimple * 's annot
+| Dascr        of fdistr  * ('s,'d) t * fdistr  * 'd annot
+| Choice       of ('s,'d) t * ('s,'d) t * fprob * fprob * Form.t * 'd annot
+| Let          of string  * ('s,'d) t * ('s,'d) t list * 's list * 'd annot
+
+type untyped_term = (unit,unit) t
+type typed_term   = (fsimple,fdistr) t
+\end{ocamlblock}
+
+\subsection{Valores}
+
+En el módulo \verb|Target.Val| se definen los tipos de datos para los
+valores retornados por el intérprete. El tipo de valor más básico es
+el valor crudo, que puede ser un número, un booleano o una clausura
+(el valor de una expresión lambda). Este último valor conserva en su
+estructura el ambiente de definición, por lo que las funciones en esta
+implementación tienen \emph{alcance léxico}, es decir, una variable toma
+su valor del entorno donde fue definida.
+
+El tipo \verb|value| corresponde al valor que figura asociado a una
+probabilidad en las distribuciones de valor retornadas por el
+intérprete. El constructor de valor \verb|Ascr| representa una
+ascripción de tipo simple (tercer argumento) sobre el valor crudo
+(segundo argumento) contenido en el valor. El primer argumento es otro tipo
+simple que funciona como evidencia de la ascripción.
+
+La distribución de valores es definida mediante el mismo tipo
+paramétrico \verb|dis| utilizado para definir los
+tipos de fórmula de distribución. En este caso el tipo \verb|dis|
+recibe como parámetro el tipo \verb|value|, lo que resulta en una
+distribución simbólica sobre valores del lenguaje, con una fórmula que
+restringe sus variables.
+
+\begin{ocamlblock}[caption={Valor Crudo, Valor, y Distribución de Valores}, label={lst:val}]
+  (* valor crudo *)
+  type raw_value = 
+  | Num of float * val_id 
+  | Bool of bool * val_id
+  | Closure of (string * simple * typed_term * env) * val_id
+
+  (* valor *)
+  and value = 
+  | Ascr of simple * raw_value * simple 
+  | Error of simple
+  
+  (* distribución de valores *)
+  type distr_value = value Formula.Distribution.dis
+\end{ocamlblock}
+
+\section{Rutinas} En esta sección se presentan las principales rutinas
+ejecutadas por la implementación en el procesamiento de un programa de
+GPLC. En particular, se describen las rutinas de lexing y parsing, el
+chequeo estático del AST fuente, las operaciones de tipo, la
+resolución de fórmulas simbólicas mediante el solucionador, y la elaboración
+del programa fuente a su representación correspondiente en el lenguaje
+destino. Aunque el pipeline completo del intérprete también contempla
+un chequeo estático del AST destino, su presentación se omite pues su
+implementación es muy similar a la del chequeo fuente. Por su mayor
+complejidad, la implementación de la evaluación se omite en esta
+sección.
+
+\subsection{Lexing y parsing}
+
+El análisis léxico del intérprete fue implementado haciendo uso de la
+librería generadora de analizadores léxicos Ocamllex. Los
+archivos implementados como artefactos para que dicha librería genere
+el módulo \verb|Lexer| son:
+\begin{itemize}
+\item Un archivo con la implementación de un tipo de dato algebraico
+  denominado \verb|token|, cuyos constructores son una representación
+  abstracta de las unidades léxicas que se espera encontrar en el
+  texto. La mayoría de los constructores no contiene más que dos
+  argumentos de información posicional: el inicio y el final del
+  lexema en el texto. En cambio constructores como \verb|NUM| (número) o
+  \verb|IDENT| (identificador) portan la información específica que le da
+  a un token su expresividad. El primer constructor porta un número de punto
+  flotante, y el segundo un string (el identificador o variable)
+\item Un archivo con la definición de una regla que retorna un token,
+  mediante \emph{pattern matching} sobre expresiones regulares, que se
+  comparan con los lexemas encontrados en el texto. En casos como el de
+  reconocimiento de un número en el texto, el número se pasa como un argumento
+  al constructor del token \verb|NUM|, además de la información posicional.
+  El caso del token \verb|LAMBDA| muestra que más de un lexema puede ser asociado
+  un token.
+\end{itemize}
+
+\begin{ocamlblock}[caption={Implementación de \texttt{token} y reconocimiento de lexemas},label={lst:imp-parse}]
+  type token =
+  ...
+  | NUM        of (float  * Lexing.position * Lexing.position)
+  | IDENT      of (string * Lexing.position * Lexing.position)
+  | LAMBDA     of (Lexing.position * Lexing.position)
+  | TRUE       of (Lexing.position * Lexing.position)
+
+  rule token = parse
+  ...
+  | decimal {
+    let sp = Lexing.lexeme_start_p lexbuf in
+    let ep = Lexing.lexeme_end_p   lexbuf in
+    NUM (Float.of_string decimal, sp, ep)
+  }
+  ...
+  | "lambda" | "lambda!" { 
+    let sp = Lexing.lexeme_start_p lexbuf in
+    let ep = Lexing.lexeme_end_p   lexbuf in
+    LAMBDA(sp, ep)
+  }
+\end{ocamlblock}
+
+El parser se implementó con la librería Menhir, a partir de un archivo
+\verb|parser.mly| donde se declara la gramática del lenguaje. Esta
+gramática describe cómo una secuencia de tokens (producidos por el
+lexer) se transforma en expresiones del lenguaje: cada token incluye sus
+posiciones (de tipo \verb|Lexing.position|), de modo que el parser puede
+construir recursivamente el AST fuente con los constructores provistos
+por \verb|Source.Term| y, al mismo tiempo, registrar en cada nodo su
+rango posicional dentro del código fuente.  Durante el parsing, algunas
+reglas de producción, como la de probabilidad gradual y la de tipos de
+distribución, se someten a chequeos semánticos para verificar su
+validez.
+
+
+\subsection{Operaciones de tipo}
+
+Las operaciones de tipo más relevantes que se implementan en este
+intérprete son las que determinan la consistencia, precisión, y el
+ínfimo entre dos tipos. Las siguientes razones justifican limitar la
+exposición a las operaciones entre tipos de fórmula:
+\begin{itemize}
+\item La única operación que se usa en tipos graduales es la consistencia
+\item Los tipos graduales de distribución se deben convertir antes a tipos de fórmula
+  para determinar su consistencia, por lo que la operación de consistencia para tipos
+  graduales de distribución no es más que convertirlos a tipos de fórmula y luego aplicar
+  la versión de fórmula de la operación entre los tipos convertidos
+\item La consistencia entre tipos graduales simples se implementa de manera análoga
+  entre tipos simples de fórmula.
+\end{itemize}
+
+Para tipos simples o de distribución, las operaciones de consistencia
+y precisión toman dos tipos de la misma categoría
+(\verb|(simple,simple)| o \verb|(distr,distr)|) y retornan un valor de
+tipo \verb|bool|, que indica el valor lógico de la proposición. En el
+caso del meet, se retorna un tipo \verb|'t option|, donde \verb|'t| es
+el tipo de los argumentos: Por ejemplo, si los argumentos son de tipo
+\verb|simple|, entonces el resultado puede ser \verb|Some Real|, en el
+caso de que el resultado exista y sea \verb|Real|, y \verb|None| en
+caso contrario.  Las versiones de estas operaciones para tipos
+simples son una traducción directa de la formulación original del
+lenguaje, codificando, mediante \emph{pattern matching}, los resultados
+para cada par de tipos.
+
+La consistencia simple recibe dos tipos simples \verb|t1| y
+\verb|t2|. El \emph{pattern matching} sobre el par \verb|(t1,t2)| retorna
+\verb|true| para los pares \verb|(Any,_)| y \verb|(_,Any)|, donde
+\verb|_| es cualquier tipo. También se retorna \verb|true| para los
+casos \verb|(Real,Real)| y \verb|(Bool,Bool)|. El caso del par
+\verb|(Fun(s1,d1),Fun(s2,d2))| retorna el valor \verb|b1 && b2|,
+donde \verb|b1| es la consistencia simple entre \verb|s1| y \verb|s2|,
+y \verb|b2| es la consistencia de distribución entre \verb|d1| y
+\verb|d2|.
+
+La operación de precisión retorna \verb|true| para los pares
+\verb|(Real,Real)| y \verb|(Bool,Bool)|. El par \verb|(_,Any)| retorna
+\verb|true| (todo tipo es tanto o más preciso que $\Any$). Siguiendo el
+patrón de la consistencia, la precisión retorna
+\verb|(Fun(s1,d1),Fun(s2,d2))| si la precisión simple entre s1 y s2, y
+la precisión de distribución entre d1 y d2 retornan \verb|true|.
+
+
+La operación de meet simple retorna un tipo opcional: si entre los tipos argumento está definida la relación de precisión, se retorna el constructor \verb|Some| con el tipo más preciso. Si los dos tipos no son comparables, la operación no está definida y se retorna \verb|None|. Concretamente si uno de los dos tipos es el desconocido \verb|Any|, se retorna por defecto \verb|Some| con el otro tipo. Para los tipos \verb|(Real,Real)| y \verb|(Bool,Bool)| se retorna \verb|Real| y \verb|Bool|, respectivamente.
+Siguiendo el patrón recursivo de las operaciones anteriores,
+para el par de tipos \verb|(Fun(s1,d1),Fun(s2,d2))| se retorna \verb|Some Fun(s3,d3)|, donde \verb|s3| es el tipo obtenido del meet simple entre \verb|s1| y \verb|s2|, y \verb|d3| es el tipo en el meet de distribución entre \verb|d1| y \verb|d2|. Si cualquiera de los dos meet recursivos retorna \verb|None|, entonces el meet entre funciones también lo hace.
+
+Para los tipos de distribución de fórmula, las tres operaciones (\verb|consistency|, \verb|precision| y \verb|meet|) siguen un mismo patrón, basado en construir un acoplamiento simbólico entre las probabilidades de ambas distribuciones. Si $d_1=(\{(s_i,p_i)\}_i,\Phi_1)$ y $d_2=(\{(t_j,q_j)\}_j,\Phi_2)$, se crea una matriz de variables frescas $\alpha_{ij}$ (módulo \verb|Formula.Coupling|) y se impone: (i) \emph{compatibilidad por celda} ($\alpha_{ij}$ debe ser nula cuando $s_i$ no es compatible con $t_j$), (ii) \emph{marginales} ($p_i=\sum_j \alpha_{ij}$ y $q_j=\sum_i \alpha_{ij}$), y (iii) las fórmulas originales $\Phi_1$ y $\Phi_2$. El solucionador decide la satisfacibilidad del sistema; en consistencia/precisión eso determina el valor booleano, y en meet, si es satisfacible, el soporte del resultado se obtiene filtrando las celdas definidas (las que retornan \verb|Some|) y asociándoles su peso $\alpha_{ij}$.
+
+Para los tipos de distribución de fórmula, las tres operaciones siguen
+un mismo patrón de diseño e implementación (ilustrado en el Algoritmo~\ref{alg:typeop}), basado en la construcción
+de un coupling $\coupling$, es decir, una matriz de variables. La
+primera tarea es determinar qué variables $\alpha_{ij}$ deben ser
+iguales a 0 por la incompatibilidad de los tipos simples $\sigma_i$ y
+$\delta_j$ de las distribuciones en cuestion. Para discernir esto se
+define, a modo de \emph{máscara}, la matrix $R$ con entrada $i,j$ el
+resultado \verb|meet_simple|$(\sigma_i,\delta_j)$ en el caso de la
+operación meet, y el valor lógico \verb|rel|$(\sigma_i,\delta_j)$
+cuando \verb|rel| es la consistencia o la precisión. De esta manera,
+las funciones \verb|Coupling.alpha_option_formula| y
+\verb|Coupling.alpha_bool_formula|, toman como argumento el par
+$(R,\coupling)$ y retornan la fórmula que contiene la condición
+correcta para cada $\alpha_{ij}$: Si
+\verb|meet_simple|$(\sigma_i,\delta_j)$ está definido, o
+\verb|rel|$(\sigma_i,\delta_j)$ es verdadero, entonces
+$0<=\alpha_{ij}<= 1$ (es una variable libre) dentro de la fórmula. De
+lo contrario, $\alpha_{ij} = 0$. La segunda tarea es imponer a cada
+fila de la matriz $\coupling$ sumar lo mismo que su probabilidad
+simbólica correspondiente, es decir, $p_i = \sum_j\alpha_{ij}$. También
+se debe imponer una condición análoga para las columnas y las
+probabilidades $q_j$. Las fórmulas que codifican estas restricciones
+para filas y columnas de $\coupling$ son retornadas
+\verb|Coupling.row_sum_formula| y \verb|Coupling.col_sum_formula|
+respectivamente, que toman como argumento el arreglo de probabilidades
+correspondiente y $\coupling$. La fórmula $\Phi$ que agrupa en
+conjunción la fórmula de restricciones individuales sobre variables
+$\alpha_{ij}$, las fórmulas de suma de filas y columnas, y las dos
+fórmulas $\Phi_1$ y $\Phi_2$, heredadas de las distribuciones $\mu$ y
+$\nu$, es la fórmula cuya satisfacibilidad indica si el meet está definido,
+o si las relaciones son verdaderas. La función
+\verb|Solver.Z3solver.solve| es aplicada sobre la fórmula $\Phi$, y si
+la fórmula tiene solución, entonces en este punto la consistencia y
+precisión retornan \verb|true|. De lo contrario retornan
+\verb|false|. Si $\Phi$ tiene solución y se trata de meet, entonces la
+función \verb|Coupling.filter_alpha_option| retorna una distribución
+con las entradas no nulas en la matriz $R$ asociadas a sus pesos
+correspondientes en la matriz $\coupling$. Esta distribución y la
+fórmula $\Phi$ son envueltos en \verb|Some| y retornados. En cambio si
+la fórmula $\Phi$ no tiene solución, se retorna \verb|None|
+
+
+\begin{algorithm}[H]
+\caption{Patrón común para operaciones sobre tipos de distribución}
+\label{alg:typeop}
+\KwIn{
+  $\mu=([(\sigma_i,p_i)]_i,\Phi_1)$, $\nu=([(\delta_j,q_j)]_j,\Phi_2)$,
+  $\mathtt{op}\in\{\mathtt{Cons},\mathtt{Prec},\mathtt{Meet}\}$
+}
+\KwOut{\texttt{bool} (Cons/Prec) o \texttt{Option}$(D,\Phi)$ (Meet)}
+
+$\coupling \leftarrow \texttt{Coupling.create}(m,n)$ \tcp*{Coupling con variables frescas $\alpha_{ij}$}
+
+\tcp{R es matriz máscara de op sobre los tipos $\sigma_i$ y $\delta_j$}
+$R \leftarrow [\,\texttt{op}(\sigma_i,\delta_j)\,]_{ij}$ \tcp*{R puede contener tipo simple option o bool según op}
+
+\BlankLine
+
+
+$\Phi \leftarrow \Phi_1 \land \Phi_2$ \tcp*{$\Phi$ es la fórmula a resolver}
+\lIf{$\mathtt{op}=\mathtt{Meet}$}
+{$\Phi \leftarrow \Phi \land \texttt{Coupling.alpha\_option\_formula}(\coupling,R)$}
+
+\lElse{$\Phi \leftarrow \Phi \land \texttt{Coupling.alpha\_bool\_formula}(\coupling,R)$}
+$\Phi \leftarrow \Phi \land \texttt{Coupling.row\_sum\_formula}([p_i]_i,\coupling)$\;
+$\Phi \leftarrow \Phi \land \texttt{Coupling.col\_sum\_formula}([q_j]_j,\coupling)$\;
+\BlankLine
+
+\If{\texttt{solve}$(\Phi)$}{
+  \uIf{$\mathtt{op}\neq\mathtt{Meet}$}{
+    \Return \texttt{true}\;
+  }
+  \Else{
+    $D \leftarrow \texttt{Coupling.filter\_alpha\_option}(R,\coupling)$;
+    
+    $\xi \leftarrow (D,\Phi)$;
+    
+    \Return \texttt{Some} $\xi$\;
+  }
+}
+\Else{
+  \uIf{$\mathtt{op}\neq\mathtt{Meet}$}{
+    \Return \texttt{false}\;
+  }
+  \Else{
+    \Return \texttt{None}\;
+  }
+}
+\end{algorithm}
+
+
+\subsection{Resolución de fórmulas}
+\label{sec:impl-rutinas-solver}
+
+La función \verb|Solver.Z3solver.solve| (Algoritmo~\ref{alg:solve}) es
+el punto de conexión del intérprete con el solucionador Z3. Esta
+función recibe una lista de fórmulas (de tipo \verb|Formula.Form.t|) y
+retorna un valor lógico: \verb|true| si el sistema tiene una solución
+en los números reales, y \verb|false| si no existe una
+solución. En algunos casos, por ejemplo si la fórmula
+  excede la capacidad computacional del solucionador o si una fórmula
+  está mal estructurada, el proceso de resolución puede no terminar.
+  Para evitar ejecuciones sin término, la lista de configuración
+  \verb|cfg=[("model","false"); ("timeout","20000")]| impone un tiempo
+  máximo de 20 segundos (20000 milisegundos), tras el cual Z3
+  interrumpe la búsqueda por \emph{timeout}. Además, la opción
+  \verb|("model","false")| desactiva la generación de modelos (la
+  construcción de una solución particular), ya que en este intérprete
+  no se instancia la solución en probabilidades reales concretas.
+
+
+En la implementación de \verb|solve|, la lista de
+fórmulas recibida como argumento se transforma a una lista de
+expresiones nativas de la librería \verb|Z3|. Esta transformación se
+realiza mediante la función auxiliar \verb|formula_to_z3expr|
+(Algoritmo~\ref{alg:formula-to-z3expr}), que traduce cada fórmula del
+intérprete a una expresión de Z3.
+
+Un aspecto importante de esta traducción es el \emph{contexto} de Z3.
+La función \verb|formula_to_z3expr| toma como argumento una fórmula y un
+contexto \verb|ctx|. Este contexto agrupa la información necesaria para
+construir y tipar expresiones dentro de una invocación al solucionador,
+por lo tanto todas las transformaciones de fórmulas dentro de
+\verb|solve| deben usar un mismo contexto.
+
+En particular, \verb|formula_to_z3expr| primero utiliza
+\verb|Algebra.of_formula| para obtener una restricción expresada en un tipo de datos interno del módulo \verb|Solver| a partir
+de la fórmula, y luego utiliza \verb|Z3expr.of_constr| para convertir
+dicha restricción en una expresión nativa de \verb|Z3|. El resultado
+corresponde a igualdades/desigualdades cuyas variables son heredadas de
+las probabilidades simbólicas presentes en la fórmula original.
+
+
+
+\begin{algorithm}[H]
+\caption{\texttt{Solver.Z3solver.formula\_to\_z3expr}}
+\label{alg:formula-to-z3expr}
+\KwIn{$\Phi$ : \texttt{Formula.Form.t}, $ctx$ : \texttt{Z3.context}}
+\KwOut{$e$ : \texttt{Z3expr.t}}
+
+$c \leftarrow \texttt{Algebra.of\_formula}(\Phi)$;
+
+$e \leftarrow \texttt{Z3expr.of\_constr}(c,ctx)$ \tcp*{genera una expresión nativa de Z3}
+\Return $e$\;
+\end{algorithm}
+
+
+Una vez obtenida la lista de expresiones de Z3, \verb|solve| intenta
+resolver el sistema con dos solucionadores. El primero es un
+solucionador de Z3 configurado para la lógica
+\texttt{QF\_LRA}\footnote{QF significa \emph{quantifier-free}
+  (sin cuantificadores). LRA es \emph{linear real
+    arithmetic}: aritmética real lineal, es decir, restricciones sobre
+  reales sin productos entre
+  variables como $x\cdot y$.}. Si el chequeo retorna \verb|SAT|
+(\emph{satisfiable}), entonces \verb|solve| retorna \verb|true|,
+indicando que el sistema tiene solución. Por otro lado, si el chequeo
+retorna \verb|UNSAT| (\emph{unsatisfiable}), entonces \verb|solve|
+retorna \verb|false|.
+
+Si el chequeo resulta en \verb|UNKNOWN|, entonces se prueba con un
+segundo solucionador de Z3 configurado para la lógica
+\texttt{QF\_NRA}\footnote{NRA es \emph{nonlinear real
+    arithmetic}: aritmética real no-lineal, es decir, permite productos entre variables como $x\cdot y$
+  o potencias como $x^2$).}.  En este caso, \verb|solve| retorna
+\verb|true| si el chequeo encuentra una solución, y retorna
+\verb|false| en cualquier otro caso, para señalar que no existe una
+solución en los reales para el sistema.
+
+
+El resultado de \verb|solve| es recibido en un contexto donde se decide
+qué hacer con su valor retornado pero, típicamente, \verb|true|
+significa que una relación entre distribuciones se verifica o que una
+operación entre distribuciones está bien definida. Por otro lado,
+\verb|false| suele significar que se levantará una excepción.
+
+\begin{algorithm}[H]
+\caption{\texttt{solve}}
+\label{alg:solve}
+\KwIn{$[\Phi_i]_i$ : lista de \texttt{Formula.Form.t}}
+\KwOut{\texttt{bool}}
+
+$\mathit{cfg} \leftarrow \{(\texttt{\strquote{model}},\texttt{\strquote{false}}),(\texttt{\strquote{timeout}},\texttt{\strquote{20000}})\}$\tcp*{configuración}
+$ctx \leftarrow \texttt{Z3.mk\_context}(\mathit{cfg})$\tcp*{contexto}
+
+$E \leftarrow [\,\texttt{formula\_to\_z3expr}(\Phi_i,ctx)\,]_i$\tcp*{Lista de expresiones}
+
+$s_1 \leftarrow \texttt{mk\_solver}(ctx,\texttt{\strquote{QF\_LRA}})$\tcp*{Solucionador lineal}
+\texttt{add}$(s_1, E)$;
+
+$r_1 \leftarrow \texttt{check}(s_1)$\;
+
+\If{$r_1 = \texttt{SAT}$}{\tcp*{$\Phi$ tiene solución}
+  \Return \texttt{true}\;
+}
+\ElseIf{$r_1 = \texttt{UNSAT}$}{\tcp*{$\Phi$ NO tiene solución}
+  \Return \texttt{false}\;
+}
+\Else{ \tcp*{$r_1 = \texttt{UNKNOWN}$}
+  $s_2 \leftarrow \texttt{mk\_solver}(ctx,\texttt{\strquote{QF\_NRA}})$\tcp*{Solucionador NO lineal}
+  \texttt{add}$(s_2, E)$\;
+  $r_2 \leftarrow \texttt{check}(s_2)$\;
+
+  \If{$r_2 = \texttt{SAT}$}{
+    \Return \texttt{true}\;
+  }
+  \Else{
+    \Return \texttt{false}\;
+  }
+}
+\end{algorithm}
+
+\subsection{Tipado fuente}
+\label{sec:impl-rutinas-tc-fuente}
+
+La rutina de chequeo estático del lenguaje fuente (Algoritmo~\ref{alg:tc-fuente}) está implementada en
+el módulo \verb|Typing.Typecheck| mediante la función recursiva
+\verb|Typing.Typecheck.typecheck|. Esta función recibe un AST fuente
+no tipado y un entorno, inicialmente vacío, que asocia identificadores a tipos
+simples graduales, y retorna un AST de la misma estructura, pero con
+una anotación de tipo insertada en cada nodo. En esta fase, por lo
+tanto, el programa no es transformado a otra representación, sino
+reconstruido preservando sus metadatos y reemplazando la anotación
+vacía de cada constructor por el tipo gradual inferido para la
+expresión correspondiente.
+
+La rutina sigue de cerca las reglas estáticas presentadas en la
+sección~\ref{sec:abstract-gplc}. Su funcionamiento general consiste en
+descender recursivamente por el AST, chequear primero las
+subexpresiones, recuperar a partir de ellas los tipos ya inferidos
+mediante \verb|get_simple_type| y \verb|get_distr_type|, y usar
+dichos tipos para decidir si el nodo actual es estáticamente válido.
+Las decisiones de aceptación o rechazo se apoyan principalmente en las
+operaciones de consistencia del módulo \verb|Typing.Consistency|, en las
+operaciones auxiliares sobre tipos graduales de \verb|Source.Type|, y
+en el manejo del entorno provisto por \verb|Utils.Env|.
+
+Un caso particularmente importante es el de \verb|Let|. Como en GPLC
+la expresión ligada puede representar una distribución de tipos, la
+implementación primero normaliza el tipo de distribución inferido para
+la expresión nombrada, obtiene de esa forma la lista de pares
+\verb|(tipo, probabilidad)|, y luego chequea el cuerpo una vez por
+cada tipo simple posible de la variable ligada. Cada una de estas
+instancias produce un tipo de distribución para el cuerpo, y el tipo
+del bloque completo se reconstruye como la suma de dichas
+distribuciones, escaladas por las probabilidades originales de la
+expresión ligada. De este modo, la implementación materializa
+directamente la semántica iterativa que el \verb|let| tiene en la
+formulación del lenguaje.
+
+
+\begin{algorithm}
+\caption{Tipado Estático Fuente: \texttt{Typing.Typecheck.typecheck} (Extracto)}
+\label{alg:tc-fuente}
+\KwIn{$t$ (AST fuente no tipado), $\Gamma$ (entorno de tipos simples)}
+\KwOut{$t'$ (AST fuente tipado)}
+$md \leftarrow \mathtt{meta}(t)$\tcp*{metadatos con información posicional de nodo no tipado}
+\tcp{Pattern matching sobre expresiones de AST}
+\If{$t = \mathtt{Num}(n,\_)$}{
+  \Return $\mathtt{Num}(n,\mathtt{Annot}(Real,md))$\;
+}
+
+\ElseIf{$t = \mathtt{Var}(x,\_)$}{
+  $\sigma \leftarrow \mathtt{lookup}(\Gamma,x)$\;
+  \Return $\mathtt{Var}(x,\mathtt{Annot}(\sigma,md))$\;
+}
+
+
+
+\ElseIf{$t = \mathtt{Dascr}(m,\nu,\_)$}{
+  $m' \leftarrow \mathtt{typecheck}(m,\Gamma)$\;
+  $\mu \leftarrow \mathtt{distrType}(m')$\;
+ 
+  \If{$\mathtt{gradual\_distr\_consistency}(\nu,\mu)$ \tcp{Chequeo de consistencia}}{ 
+    \Return $\mathtt{Dascr}(m',\nu,\mathtt{Annot}(\nu,md))$\;
+  }
+  \Else{
+    \textbf{raise} \texttt{Exception};
+  }
+}
+
+\ElseIf{$t = \mathtt{Choice}(p,m,n,\_)$}{
+  $m' \leftarrow \mathtt{typecheck}(m,\Gamma)$;  $n' \leftarrow \mathtt{typecheck}(n,\Gamma)$\;
+  $\mu \leftarrow \mathtt{distrType}(m')$;  $\nu \leftarrow \mathtt{distrType}(n')$\;
+  $q \leftarrow \mathtt{prob\_compl}(p)$ \tcp*{complemento}
+  $\tau \leftarrow \mathtt{Sum}([\mathtt{Scale}(p,\mu),\mathtt{Scale}(q,\nu)])$\;
+  \Return $\mathtt{Choice}(p,m',n',\mathtt{Annot}(\tau,md))$\;
+}
+
+\ElseIf{$t = \mathtt{Let}(x,m,[n],\_)$}{
+  $m' \leftarrow \mathtt{typecheck}(m,\Gamma)$\;
+  $\mu \leftarrow \mathtt{distrType}(m')$\;
+ 
+  $[(\sigma_i,p_i)]_i \leftarrow \mathtt{normalize\_distr}(\mu)$ \tcp*{-> lista de (tipo,prob)}
+  $\Gamma_i \leftarrow \mathtt{extend}(\Gamma,x,\sigma_i)$ \tcp*{un entorno por cada tipo posible de $x$}
+  $n'_i \leftarrow \mathtt{typecheck}(n,\Gamma_i)$\;
+  $\nu_i \leftarrow \mathtt{distrType}(n'_i)$\;
+  $\tau \leftarrow \mathtt{Sum}([\mathtt{Scale}(p_i,\nu_i)]_i)$\;
+  \Return $\mathtt{Let}(x,m',[n'_i]_i,\mathtt{Annot}(\tau,md))$\;
+}
+
+
+
+
+\tcp*{otros casos}
+
+\Else{
+
+   \textbf{Error} \;
+}
+\end{algorithm}
+
+
+\subsection{Elaboración}
+\label{sec:impl-rutinas-elaboracion}
+
+La elaboración corresponde a la traducción desde el AST fuente
+tipado (producido por \verb|typecheck| del módulo \verb|Target.Typecheck|) hacia
+un AST destino no tipado, implementada en el módulo
+\verb|Target.Elaborate| mediante la rutina recursiva
+\verb|Target.Elaborate.elaborate|. El objetivo de esta fase no es
+volver a inferir tipos, sino \emph{reformular} el programa en un
+lenguaje destino que haga explícitas las verificaciones dinámicas y la
+infraestructura simbólica (probabilidades simbólicas y fórmulas)
+requeridas en tiempo de ejecución.
+
+En términos de implementación, la elaboración efectúa los
+siguientes cambios: {(1)} Cada nodo destino (incluyendo nodos
+nuevos introducidos por la transformación) hereda los metadatos del
+nodo fuente correspondiente, de modo que los errores reportados en
+fases posteriores puedan localizarse con precisión.  {(2)} Los
+tipos graduales anotados en el AST fuente se transforman a tipos de
+fórmula del lenguaje destino (mediante las fórmulas
+\lstinline|lift_simple| y \lstinline|lift_distr|), lo cual hace
+explícito el componente simbólico.  {(3)} Cada ascripción del
+lenguaje destino (\lstinline|Sascr| / \lstinline|Dascr|) porta una
+evidencia, computada como el ínfimo entre el tipo inferido de la
+subexpresión y el tipo esperado.
+
+Un aspecto importante es que, dado que el AST fuente ya fue chequeado
+estáticamente, la elaboración asume que los \emph{meet} necesarios
+están definidos. En consecuencia, un fallo al calcular evidencia se
+interpreta como un error interno de la implementación (o una violación
+de invariantes), y no como un error atribuible al programa del
+usuario.
+
+El Algoritmo~\ref{alg:elab} muestra un extracto de casos
+representativos.  Los casos omitidos (por ejemplo, operadores,
+\lstinline|let|, ascripción de distribución, etc.)  siguen el mismo
+patrón: recursión, levantamiento de tipos, cómputo de evidencia
+mediante {meet}, y reconstrucción del nodo destino preservando
+metadatos.
+
+
+\begin{algorithm}[H]
+\caption{Elaboración: \texttt{Target.Elaborate.elaborate} (extracto)}
+\label{alg:elab}
+\KwIn{$t$ (AST fuente tipado)}
+\KwOut{$u$ (AST destino no tipado)}
+$md \leftarrow \mathtt{meta}(t)$; \tcp*{metadatos del nodo fuente}
+$ann \leftarrow \mathtt{Annot}((),md)$; \tcp*{anotación destino (sin tipo, solo metadatos)}
+
+\If{$t = \mathtt{Num}(n,\_)$}{
+  \Return $\mathtt{Sascr}(Real,\ \mathtt{Num}(n,ann),\ Real,\ ann)$\;
+}
+
+\ElseIf{$t = \mathtt{Var}(x,\_)$}{
+  \Return $\mathtt{Var}(x,ann)$\;
+}
+
+
+
+\ElseIf{$t = \mathtt{Dascr}(m,\nu,\_)$}{
+  $\mu \leftarrow \texttt{distrType}(m)$\tcp*{tipo gradual de expresión fuente}
+  $\mu' \leftarrow \mathtt{lift\_distr}(\mu)$; $\ \nu' \leftarrow \mathtt{lift\_distr}(\nu)$\tcp*{tipos grad -> tipos de fórm.}
+  $m' \leftarrow \mathtt{elaborate}(m)$\tcp*{elaboración de m}
+  $\epsilon \leftarrow \mathtt{meet\_distr}(\mu',\nu')$\tcp*{se asume definido}
+  \Return $\mathtt{Dascr}(\epsilon,\ m',\ \nu',\ ann)$\;
+}
+
+\ElseIf{$t = \mathtt{Choice}(p,m,n,\_)$}{
+  $\mu \leftarrow \mathtt{distrType}(m)$; $\ \nu \leftarrow distrType\mathtt{}(n)$;
+  
+  $m' \leftarrow \mathtt{elaborate}(m)$; $\ n' \leftarrow \mathtt{elaborate}(n)$;
+  
+  $\mu' \leftarrow \mathtt{lift\_distr}(\mu)$; $\ \nu' \leftarrow \mathtt{lift\_distr}(\nu)$\;
+
+  $(\alpha,\Phi_\alpha) \leftarrow \mathtt{lift\_gprob}(p)$\tcp*{prob. simbólica + restricciones}
+  $(\omega,\Phi_{\omega}) \leftarrow \mathtt{complement}(\alpha)$\;
+  $\Phi \leftarrow \Phi_\alpha \land \Phi_{\omega} \land (\alpha + \omega = 1)$;
+
+  $\tau_1 \leftarrow \mathtt{add\_formula}(\alpha \cdot \mu' + \omega\cdot\nu', \Phi )$\;
+
+  $\tau_2 \leftarrow \mathtt{lift\_distr}(\mathtt{distrType}(t))$\tcp*{tipo gradual inferido del nodo}
+  $\epsilon \leftarrow \mathtt{meet\_distr}(\tau_1,\tau_2)$\tcp*{se asume definido}
+
+  $c \leftarrow \mathtt{Choice}(m',n',(\alpha,\Phi_\alpha),(\omega,\Phi_\omega),\Phi,ann)$\;
+  \Return $\mathtt{Dascr}(\epsilon,\ c,\ \tau_2,\ ann)$\;
+}
+
+\tcp*{otros casos}
+
+\Else{
+
+   \textbf{Error} \;
+}
+\end{algorithm}

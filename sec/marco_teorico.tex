@@ -1,0 +1,111 @@
+% -*- TeX-master: "../main.tex" -*-
+\chapter{Marco teórico}\label{sec:estado}
+
+\section{Lenguajes probabilísticos}
+
+\citet{zorzi} realizan un estudio importante en el campo de los lenguajes de programación probabilística, centrado en la semántica del cálculo lambda con elecciones probabilísticas.
+
+\citet{slc} introducen el \emph{cálculo lambda estocástico}, un cálculo lambda tipado probabilístico. En este trabajo, los autores muestran que las distribuciones de probabilidad forman una mónada y utilizan una semántica denotacional para dar un significado matemático preciso a los términos del cálculo. Esta semántica se emplea para implementar consultas de esperanza matemática, muestreo y soporte sobre la distribución de probabilidad del modelo.
+
+
+
+Sin embargo, debido a la ineficiencia del enfoque monádico en la definición de la consulta de esperanza matemática, los autores definen una semántica denotacional alternativa y equivalente, en la cual los términos del cálculo lambda se traducen como \emph{términos de medida} que denotan distribuciones de probabilidad discretas. Con esta semántica, se implementa una consulta de esperanza mucho más eficiente.
+
+\citet{church} presentan un lenguaje funcional dinámicamente tipado, cuya parte determinista se basa en el lenguaje LISP. La semántica de este lenguaje se basa en los conceptos de historial de evaluación y distribuciones condicionales. El primero es el proceso de evaluar una expresión recursivamente, devolviendo el resultado muestreado con una probabilidad igual al producto de todas las probabilidades de las elecciones aleatorias en la ruta del árbol de sintaxis abstracta (AST, del inglés \emph{abstract syntax tree})~\footnote{Estructura de datos que representa internamente la sintaxis de un programa.}  tomada. El segundo consiste en muestrear desde un programa en función de un predicado lógico que debe satisfacerse.
+
+De especial interés en este trabajo es el concepto de \emph{memoización estocástica}, mediante el cual el resultado aleatorio de modelos generativos puede almacenarse con un valor fijo para futuras llamadas con los mismos argumentos. Esta reutilización de la computación probabilística hace que la implementación sea más eficiente y consistente entre ejecuciones.
+
+\citet{pt} extienden el cálculo lambda simplemente tipado con el constructor numérico $S$ (sucesor), recursividad, y un operador de elección binaria probabilística $\oplus$. El sistema de tipos considera tipos de distribución, que son colecciones de tipos ponderados por sus probabilidades, y la semántica dinámica reduce programas a distribuciones sobre valores. El \emph{tipo de tamaño afín monádico}, que encapsula las computaciones probabilísticas y prohíbe la repetición de variables, está diseñado para garantizar la \emph{terminación casi segura} de los programas, es decir, la terminación con probabilidad $1$.
+
+
+\section{Sistemas de tipos estáticos}
+
+Los sistemas de tipos estáticos son mecanismos formales que asignan
+tipos a las expresiones de un programa antes de su ejecución. En
+términos generales, su propósito es clasificar las expresiones de un
+lenguaje según la clase de valores que pueden producir y, de esta
+manera, rechazar la formulación de un programa debido a combinaciones
+de términos que no respetan las reglas semánticas del lenguaje. Un
+sistema de tipos puede entenderse como un método para verificar la
+ausencia de ciertos comportamientos erróneos \citep{pierce}.
+
+Desde un punto de vista formal, un sistema de tipos estáticos se
+establece mediante juicios y reglas de inferencia. La notación
+estándar es $\Gamma \vdash e : \tau$, que indica que la expresión $e$
+tiene tipo $\tau$ bajo un contexto $\Gamma$ que asigna tipos a las
+variables libres de $e$.  Las reglas que definen este juicio
+especifican qué combinaciones de expresiones son aceptables: por
+ejemplo, una operación aritmética exige operandos de tipo numérico, o
+la aplicación de una función solo es válida cuando el argumento tiene
+el tipo del dominio de la función.
+
+Una motivación del tipado estático es la detección temprana de
+errores, antes de la ejecución del programa. Esto previene la
+existencia de errores que podrían no manifestarse en la ejecución,
+como en el ejemplo de \citet{pierce}
+\begin{center}
+  \verb|if true then 1 else <Expresión con error de tipo>|
+\end{center}
+
+Además, un sistema de tipos bien definido permite establecer
+propiedades globales del lenguaje. Entre ellas, la más importante es
+la \emph{seguridad de tipos}, que suele
+expresarse mediante las propiedades de \emph{preservación} y
+\emph{progreso}: si una expresión bien tipada da un paso de evaluación, el resultado
+conserva el mismo tipo; y si una expresión está bien tipada, entonces
+se cumple que (1) ya es un valor, o bien (2) puede seguir evaluándose. Por lo tanto, no
+se atasca en un estado en el que la evaluación no puede proseguir
+\citep{pierce, harper}.
+
+
+\section{Sistemas de tipos graduales}
+
+Los sistemas de tipos graduales extienden el tipado estático,
+permitiendo que la información de tipos de un programa sea parcial. Su
+propósito es hacer compatible la verificación estática con fragmentos
+del programa en los que no toda la información de tipos está
+disponible antes del tiempo de ejecución. De este modo, un mismo
+lenguaje puede combinar partes de un programa con tipado preciso y
+partes más flexibles, permitiendo al programador controlar el grado
+de chequeo estático mediante la introducción de anotaciones explícitas
+de tipo.
+
+El trabajo fundacional de \citet{gt} presenta esta idea en un
+cálculo lambda gradual, donde los tipos pueden estar completamente
+especificados o contener partes desconocidas, representadas por el
+tipo desconocido $\Any$. Este sistema permite comenzar con pocas
+anotaciones de tipo, brindando flexibilidad durante las primeras
+etapas del desarrollo, y agregar progresivamente mayor precisión de
+tipos para aprovechar beneficios como la detección temprana de
+errores y la optimización de rendimiento, a medida que el desarrollo
+avanza. Además, es posible eliminar anotaciones de tipos para
+relajar restricciones, de modo que la flexibilidad funcione en ambas
+direcciones.
+
+En este contexto (de tipado gradual), la idea central de compatibilidad de tipos ya no es
+la igualdad exacta, sino la \emph{consistencia}.  Intuitivamente, dos
+tipos graduales son consistentes cuando sea posible que representen
+dos tipos estáticos que sean iguales. Por ejemplo, el tipo $\Any$
+es consistente con $\Int$, porque la expresión con tipo $\Any$
+puede ser un entero. El chequeo estático puede rechazar
+incompatibilidades evidentes, aun cuando algunos fragmentos del
+programa permanezcan imprecisos: los tipos $\Fun{\Int}{\Any}$ y
+$\Fun{\Bool}{\Any}$ son inconsistentes. La consistencia cumple de esta
+manera un papel análogo al de la compatibilidad estricta en los
+sistemas de tipos estáticos, pero adaptado a un escenario de
+información parcial.
+
+Esto tiene una consecuencia importante sobre la ejecución. Cuando la
+información de tipos es suficientemente precisa, el lenguaje puede
+aprovechar las ventajas habituales del chequeo estático. En cambio,
+cuando la información es desconocida, parte de la verificación debe
+desplazarse~a tiempo de ejecución mediante transformaciones sintácticas,
+como se hace en el cálculo gradual de \citet{gt}, donde se
+introducen en el programa fuente verificaciones dinámicas explícitas que
+verifican la consistencia entre el valor y un tipo esperado. De este
+modo, el tipado gradual distribuye la verificación entre la fase
+estática y la dinámica.
+
+La metodología de \textit{Tipado Gradual por Abstracción} (AGT), presentada por \citet{agt}, ofrece una base formal para el tipado gradual utilizando interpretación abstracta a nivel de tipos. En esta metodología, la incertidumbre sobre la información de tipos se maneja de forma sistemática mapeando un tipo gradual al conjunto de tipos estáticos que puede representar. Además, AGT introduce el uso de \emph{evidencia}, un par de tipos graduales que justifica la transitividad de los juicios de consistencia en tiempo de ejecución.
+
+La principal implicación teórica de AGT es que los lenguajes graduales diseñados con esta metodología satisfacen, por construcción, los criterios refinados de tipado gradual establecidos por \citet{refined}.

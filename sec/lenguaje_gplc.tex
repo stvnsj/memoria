@@ -1,0 +1,148 @@
+% -*- TeX-master: "../main.tex" -*-
+\chapter{Lenguaje concreto e intérprete}
+
+En este capítulo se presenta GPLC en su sintaxis concreta y se
+describe el comportamiento del intérprete desarrollado en este
+trabajo. Primero se especifica la gramática del lenguaje y sus
+constructos principales. Luego se caracteriza la forma del resultado
+que produce la ejecución de un programa sintáctica y semánticamente
+correcto. Finalmente, se describe brevemente la ejecución del
+intérprete y se presentan algunos ejemplos de programas reales
+evaluados por el intérprete, que ayudan a desarrollar una intuición acerca de la
+expresividad del lenguaje y a entender el tipo de resultado concreto que
+se puede obtener.
+
+\section{Sintaxis concreta}\label{sec:concreto-sintaxis}
+La sintaxis concreta desarrollada para el lenguaje tiene una gran similitud con la sintaxis abstracta diseñada en la formulación de \cite{gplc}. En su mayoría, las expresiones conservan su estructura de manera literal, facilitando el razonamiento sobre los programas para el usuario familiarizado con la teoría, pero ofreciendo una simpleza que lo hace accesible al usuario que desconoce el aspecto abstracto del lenguaje.
+
+En la sintaxis aquí presentada, el elemento \lstinline|<prob>| es una probabilidad gradual, esto es, el símbolo \lstinline|?| (que representa a la probabilidad no especificada), o un número real entre 0 y 1. Los elementos \lstinline|<simple>| y \lstinline|<distr>| son los tipos simples y de distribución, respectivamente. \lstinline|<simple>| puede ser \lstinline|Real|, \lstinline|Bool|, \lstinline|?| (el tipo desconocido), o \lstinline|<simple>| \texttt{->} \lstinline|<distr>| (un tipo de función), mientras que \lstinline|<distr>| es
+\begin{center}
+  \lstinline|{<simple> : <prob> , ... , <simple> : <prob>}|
+\end{center}
+donde las probabilidades numéricas --es decir, aquellas que no son \lstinline|?|-- no pueden sumar más de 1.0.
+
+En la gramática de la sintaxis concreta, un valor \verb|<val>| es un número \verb|<num>|, un booleano \verb|<bool>|, una abstracción \verb|<lambda>|, un identificador \lstinline|<var>|, o un valor ascrito por un tipo simple \lstinline|<val> :: <simple>|. \;El valor \lstinline|<num>| puede ser un número entero o decimal. \lstinline|<bool>| es \lstinline|true| o \lstinline|false|. Un valor \verb|<lambda>| tiene la sintaxis \lstinline|lambda <var> : <simple> . <expr>|, donde \lstinline|<expr>| es una expresión del lenguaje. La sintaxis \lstinline|lambda <var> . <expr>| es azúcar sintáctico para \lstinline|lambda <var> : ? . <expr>|.
+
+Una operación binaria \lstinline|<binop>| puede ser uno de los dos tipos de operaciones binarias presentes en la sintaxis, \lstinline|<numop>| o \lstinline|<boolop>|. La primera puede ser una de las operaciones básicas entre números reales: \lstinline|+|, \lstinline|-|, \lstinline|*| y \lstinline|/|. La última puede ser una de las dos operaciones \lstinline|and| u \lstinline|or| entre valores lógicos.
+
+Una expresión \lstinline|<expr>| en la sintaxis del lenguaje es cualquiera de los siguientes constructos: un valor \lstinline|<val>|, una operación \lstinline|<val> <binop> <val>|, una aplicación \lstinline|(<val> <val>)|, la selección binaria probabilística \lstinline|<prob> $ <expr> : <expr>|, el bloque \texttt{let <var>} \texttt{= <expr> in <expr>}, el bloque condicional \lstinline|if <val> then <expr> else <expr>|, una ascripción de tipo de distribución \lstinline|<expr> :: <distr>|.
+
+La operación de selección binaria probabilística se denota en sintaxis
+concreta como \lstinline|<prob> $ <expr> : <expr>|.  El primer
+elemento de la sintaxis es la probabilidad gradual \lstinline|<prob>|,
+seguido del símbolo de selección \lstinline|$|. Luego vienen las dos
+expresiones de la selección, separadas por el símbolo \lstinline|:|,
+la primera expresión seleccionada con la probabilidad escrita, y la
+segunda seleccionada con el complemento. Por ejemplo,
+\lstinline|0.5 $ true : 7 * 7|. Usando la probabilidad desconocida,
+\lstinline|? $ 0 : false|.
+
+
+
+
+
+\section{Valores}\label{sec:concreto-valor}
+El valor retornado por el intérprete para un programa de GPLC es una
+distribución de probabilidad sobre valores. Cada valor de una
+distribución retornada es un valor en el sentido de la sección
+\ref{par:tplc-terms}, es decir, un literal numérico o lógico, o
+una clausura, en una ascripción con evidencia. Las probabilidades en la distribución retornada son variables simbólicas generadas durante el
+procesamiento del intérprete. La fórmula que restringe las variables de la distribución no se muestra en el resultado.
+
+Un ejemplo de distribución retornada es el Código \ref{lst:return1}. Los valores crudos presentes en la distribución son \lstinline|1| y \lstinline|true|. En los tres elementos de la distribución, los valores tienen una evidencia que justifica la relación de consistencia del tipo del valor crudo con el tipo ascrito. Las variables \lstinline|SymProb| corresponden a las probabilidades simbólicas de los valores.
+\begin{gplcblock}[style=gplc-style,caption={Distribución simbólica de valores},label={lst:return1}]
+{
+	 [Bool] true :: Bool : SymProb21 ,
+	 [Bool] true :: ? : SymProb22 ,
+	 [Real] -1. :: ? : SymProb23 
+}  
+\end{gplcblock}
+
+\section{Intérprete y ejecución}
+
+\subsection{Intérprete} El intérprete de GPLC es un programa
+implementado en OCaml. Su forma concreta es un ejecutable
+compilado que recibe por la entrada estándar un programa de GPLC con
+la sintaxis especificada en la sección \ref{sec:concreto-sintaxis}, y
+retorna una distribución simbólica como la descrita en la sección
+\ref{sec:concreto-valor}. Este intérprete implementa una semántica
+para el lenguaje basada estrechamente en la formulación de \cite{gplc}, y se
+apoya en la librería Z3 para decidir la satisfacibilidad de sistemas de
+restricciones con probabilidades simbólicas.
+
+
+\subsection{Ejemplos} A continuación se presentan tres ejemplos que
+siguen una estrategia incremental, añadiéndose
+sucesivamente estructuras sintácticas que ilustran el
+uso práctico del lenguaje e ilustran detalles semánticos
+importantes acerca de su interpretación.
+
+El término más característico del lenguaje, la selección binaria
+probabilística, se ilustra en el Código \ref{lst:ex1}. Esta
+consiste en la asignación de una probabilidad de selección
+\lstinline|p| a la primera rama, y \lstinline|1-p| a la segunda. El
+término se asemeja en sintaxis y en sentido a la expresión condicional
+ternaria \verb|<cond> ? <expr> : <expr>|, presente en lenguajes como C
+o Java, que evalúa la primera rama para \verb|true|, y la segunda para
+\verb|false|. Sin embargo, el carácter semántico de la selección en
+GPLC selecciona ambas ramas\footnote{En los casos borde p=1 y p=0,
+  la certidumbre de la probabilidad asigna el peso total de la
+  selección a una rama, como en una expresión condicional.}, 
+distribuyendo el peso entre ellas según la probabilidad \verb|p|.  En
+el código, la expresión de selección se evalúa a una distribución de
+probabilidad que contiene ambas ramas, es decir, \lstinline|0| y
+\lstinline|3|, ascritos por el tipo \lstinline|Real|, y ponderados por variables reales.
+
+
+
+\begin{gplcblock}[caption={Selección binaria},label={lst:ex1}]
+0.25 $ 0 : 3
+
+>>>
+{
+	 [Real] 0. :: Real : SymProb19 ,
+	 [Real] 3. :: Real : SymProb20 
+}  
+\end{gplcblock}
+
+Elaborando sobre el código anterior, se añade un
+\lstinline|let| que liga la selección del Código \ref{lst:ex1} a la
+variable \lstinline|num|. Este ejemplo evidencia el carácter \emph{iterativo}
+que el \lstinline|let| tiene en GPLC: el cuerpo se evalúa en el rango
+de todos los valores que están contenidos en la distribución de la
+expresión ligada \verb|0.25 $ 0 : 3|. En la distribución retornada, se aprecian los valores \lstinline|0+0| y \lstinline|3+3|, cada uno con la probabilidad que el valor de \lstinline|num| hereda de la selección (aunque esto no se muestre en las probabilidades simbólicas).
+
+\begin{gplcblock}[caption={bloque \texttt{let}},label={lst:ex2}]
+let num = 0.25 $ 0 : 3 in
+num + num
+
+>>>
+{
+	 [Real] 0. :: Real : SymProb73 ,
+	 [Real] 6. :: Real : SymProb74 
+}  
+\end{gplcblock}
+
+Finalmente, el Código \ref{lst:ex3} muestra cómo la operación \lstinline|num + num| se puede abstraer mediante una abstracción lambda. En este ejemplo, que presenta dos \lstinline|let| anidados, la abstracción que efectúa la suma se asigna a la variable \lstinline|double|, la cual se aplica a \lstinline|num|. La distribución retornada evidencia los mismos valores.
+
+\begin{gplcblock}[caption={Definición y aplicación de abstracción},label={lst:ex3}]
+let double = lambda x : Real . (x + x) in
+let num = 0.25 $ 0 : 3 in
+(double num)
+
+>>>
+{
+	 [Real] 0. :: Real : SymProb117 ,
+	 [Real] 6. :: Real : SymProb118 
+}  
+\end{gplcblock}
+
+Los ejemplos presentados ofrecen una introducción mínima al uso
+práctico del lenguaje para construir programas básicos, y a la
+evaluación que el intérprete realiza en estos casos. Una colección
+más completa de programas se encuentra en el capítulo
+\ref{sec:validacion}, donde se abordan múltiples combinaciones de
+términos, se ejemplifica el uso de la ascripción de tipos, y se
+comprueban errores semánticos mediante los reportes de error que el
+intérprete entrega.
+
