@@ -1,17 +1,12 @@
 % -*- TeX-master: t; -*-
-%
-% se puede agregar la opción [english] para 
-%  memorias o tesis en inglés (borrando el archivo .aux)
+
+
 \documentclass{umemoria} 
 \depto{Departamento de Ciencias de la Computación}
 \author{Jonnathan Stevens S.}
 \title{Desarrollo de un Intérprete para un Lenguaje gradual Probabilístico}
 
-% incluir ambos comandos para una doble titulación
-%  o quitar el comando que no aplica
 \memoria{Ingeniero Civil en Computación}
-%\tesis{Magíster en ???}
-%\tesis{Doctor en ???} % incluir solo este comando para doctorados
 
 % puede haber varios profesores guía seperados por coma;
 % pero si es una memoria, solo puede haber un profesor guía
@@ -25,13 +20,6 @@
 %\cotutela{Nombre Institución} % incluir en caso de cotutela
 
 \comision{Nancy Hitschfeld K.,Johan Fabry}
-
-%\auspicio{Nombre Institución} % incluir en caso de recibir financiamiento
-
-% tiene que ser el año en que se da el examen de título/grado (defensa)
-%\anho{2021} % incluir solo para reemplazar el año actual
-
-
 
 
 % =========
@@ -79,22 +67,15 @@
 \input{resumen.tex}% resumen.tex
 \end{resumen}
 
-% opcional: incluir para tesis en inglés;
-%  en este caso hay que tener el resumen y abstract
-%   en ambos idiomas
-%\begin{abstract}
-%\lipsum[1-4]
-%\end{abstract}
 
 \begin{dedicatoria}
   A mi madre, Violeta Stevens
 \end{dedicatoria}
 
 \tableofcontents
-\listoffigures % opcional
+\listoffigures
 
 \mainmatter
-
 
 \input{sec/introduccion.tex}     % 1 sec/introduccion.tex
 \input{sec/marco_teorico.tex}    % 2 sec/marco_teorico.tex
@@ -106,18 +87,8 @@
 \input{sec/validacion.tex}       % 8 sec/validacion.tex
 \input{sec/conclusiones.tex}     % 9 sec/conclusiones.tex
 
-
-
-% ver https://www.overleaf.com/learn/latex/Glossaries
-% \input{glosario.tex} % opcional
-
 \nocite{*}
 \bibliographystyle{plainnat}
 \bibliography{bibliografia}
-
-% opcional ...
-% \begin{appendices}
-% \input{anexoA.tex}
-% \end{appendices}
 
 \end{document}
