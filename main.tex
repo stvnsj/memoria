@@ -37,17 +37,15 @@
 % =========
 % Packages
 % =========
-\usepackage[spanish]{babel}
-\usepackage{comment} % Borrar después de usar
-\usepackage[authoryear]{natbib}
-\usepackage{lipsum}
+\usepackage[spanish]{babel}%Configuración esp
+\usepackage{comment}%Environment de comentario
+\usepackage[authoryear]{natbib}%Configuración de citas 
 \usepackage{xcolor}
 \usepackage{mathrsfs}
 \usepackage{float}
 \usepackage{mathpartir}
 \usepackage{listings}
 \usepackage[ruled,vlined,linesnumbered]{algorithm2e}
-\newcommand{\harvardand}{y}
 
 
 % ======================
@@ -55,6 +53,7 @@
 % ======================
 \usepackage{needspace} % Space Management Wizard
 \usepackage{comment}
+\usepackage{lipsum}
 
 
 
@@ -68,6 +67,9 @@
 \input{aux/macro.tex}% aux/macro.tex
 
 
+%%%%%%%%%%%%%%%%%%%%%%%
+% INICIO DE DOCUMENTO %
+%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
 
 \frontmatter
@@ -85,17 +87,13 @@
 %\end{abstract}
 
 \begin{dedicatoria}
+  A mi madre, Violeta Stevens
 \end{dedicatoria}
 
-\begin{thanks}
-\end{thanks}
-
 \tableofcontents
-%\listoftables % opcional
 \listoffigures % opcional
 
 \mainmatter
-
 
 
 \input{sec/introduccion.tex}     % 1 sec/introduccion.tex
@@ -108,9 +106,7 @@
 \input{sec/validacion.tex}       % 8 sec/validacion.tex
 \input{sec/conclusiones.tex}     % 9 sec/conclusiones.tex
 
-%\input{cap2.tex}
-%\input{cap3.tex}
-%\input{conclu.tex}
+
 
 % ver https://www.overleaf.com/learn/latex/Glossaries
 % \input{glosario.tex} % opcional

@@ -389,10 +389,21 @@ Static Error [line 1, cols 19-20]: variable x not found
 
 \subsection{Lambda}
 
+\begin{comment}
 Las expresiones lambda tienen la sintaxis
 \lstinline|lambda<var>:<simple>.<expr>|.  La
 sintaxis\lstinline| lambda<var>.<expr>| es azúcar sintático de
 \lstinline|lambda<var>:?.<expr>|. Si bien el argumento de una función
+debe ser una expresión de tipo simple, es decir, un valor (número,
+booleano, variable, o lambda), el cuerpo de la función puede ser
+cualquier clase de expresión.
+\end{comment}
+
+Las expresiones lambda tienen la sintaxis
+\lstinline|lambda <var> : <simple> . <expr>|. La
+sintaxis \lstinline|lambda <var> . <expr>| es
+azúcar sintáctico para
+\lstinline|lambda <var> : ? . <expr>|.  Si bien el argumento de una función
 debe ser una expresión de tipo simple, es decir, un valor (número,
 booleano, variable, o lambda), el cuerpo de la función puede ser
 cualquier clase de expresión.
